@@ -61,7 +61,7 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics }: PlayerS
     selectedPlayers.some(p => p.id === playerId);
 
   const handleStartTournament = () => {
-    if (selectedPlayers.length >= 3) {
+    if (selectedPlayers.length >= 2) {
       onStartTournament(selectedPlayers);
     }
   };
@@ -166,15 +166,15 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics }: PlayerS
                   
                   <Button
                     onClick={handleStartTournament}
-                    disabled={selectedPlayers.length < 3}
+                    disabled={selectedPlayers.length < 2}
                     className="w-full px-8 py-3 text-lg"
                     size="lg"
                   >
                     <Play className="h-5 w-5 mr-2" />
                     Turnier starten
-                    {selectedPlayers.length < 3 && (
+                    {selectedPlayers.length < 2 && (
                       <span className="ml-2 text-sm opacity-75">
-                        (min. 3 Spieler)
+                        (min. 2 Spieler)
                       </span>
                     )}
                   </Button>
