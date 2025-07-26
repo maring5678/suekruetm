@@ -72,7 +72,19 @@ export function Statistics({ onBack }: StatisticsProps) {
     const stats: PlayerStats[] = [];
 
     for (const player of players || []) {
-      // Hole alle Rundenergebnisse für diesen Spieler (auch aus nicht abgeschlossenen Turnieren)
+      // Hole historische Gesamtpunkte
+      const { data: historicalData, error: historicalError } = await supabase
+        .from("historical_player_totals")
+        .select("total_points")
+        .eq("player_name", player.name)
+        .single();
+
+      let historicalPoints = 0;
+      if (!historicalError && historicalData) {
+        historicalPoints = historicalData.total_points;
+      }
+
+      // Hole alle Rundenergebnisse für diesen Spieler (seit dem Import)
       const { data: results, error: resultsError } = await supabase
         .from("round_results")
         .select("points")
@@ -80,26 +92,27 @@ export function Statistics({ onBack }: StatisticsProps) {
 
       if (resultsError) throw resultsError;
 
-      // Einfache Berechnung: Nur Gesamtpunkte
-      const totalPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
+      // Berechne neue Punkte seit Import
+      const newPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
+      
+      // Gesamtpunkte = historische Punkte + neue Punkte
+      const totalPoints = historicalPoints + newPoints;
 
-      // Nur Spieler mit Punkten anzeigen
-      if (totalPoints > 0) {
-        stats.push({
-          playerId: player.id,
-          playerName: player.name,
-          totalPoints,
-          tournamentsPlayed: 0,
-          roundsPlayed: results?.length || 0,
-          firstPlaces: 0,
-          secondPlaces: 0,
-          thirdPlaces: 0,
-          averagePointsPerRound: 0,
-          averageRanking: 0,
-          winRate: 0,
-          podiumRate: 0,
-        });
-      }
+      // Zeige alle Spieler an, auch die mit 0 Punkten
+      stats.push({
+        playerId: player.id,
+        playerName: player.name,
+        totalPoints,
+        tournamentsPlayed: 0,
+        roundsPlayed: results?.length || 0,
+        firstPlaces: 0,
+        secondPlaces: 0,
+        thirdPlaces: 0,
+        averagePointsPerRound: 0,
+        averageRanking: 0,
+        winRate: 0,
+        podiumRate: 0,
+      });
     }
 
     // Sortiere nach Gesamtpunkten
