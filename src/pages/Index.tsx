@@ -302,7 +302,7 @@ const Index = () => {
 
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onStartExcelImport={handleStartExcelImport} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
     
     case "player-edit":
       return (

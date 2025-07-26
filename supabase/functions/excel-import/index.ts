@@ -38,9 +38,19 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Import historische Gesamtpunkte
-    const importHistoricalTotals = async () => {
+    // Lösche alle bisherigen Daten und importiere historische Gesamtpunkte
+    const clearAndImportHistoricalTotals = async () => {
       try {
+        console.log('Clearing all existing data...');
+        
+        // Lösche alle bisherigen Daten in der richtigen Reihenfolge
+        await supabase.from('round_results').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('rounds').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('tournament_players').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('tournaments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('historical_player_totals').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        console.log('All existing data cleared.');
         console.log('Starting import of historical player totals...');
         
         const results = [];
@@ -50,12 +60,10 @@ Deno.serve(async (req) => {
             
             const { error } = await supabase
               .from('historical_player_totals')
-              .upsert({
+              .insert({
                 player_name: playerName,
                 total_points: totalPoints,
-                tournaments_played: 1 // Placeholder für bisherige Turniere
-              }, {
-                onConflict: 'player_name'
+                tournaments_played: 1
               });
             
             if (error) {
@@ -80,13 +88,13 @@ Deno.serve(async (req) => {
     };
 
     // Starte Background Task
-    EdgeRuntime.waitUntil(importHistoricalTotals());
+    EdgeRuntime.waitUntil(clearAndImportHistoricalTotals());
 
     // Sofortige Antwort
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Importing historical player totals from Excel...',
+        message: 'Clearing all data and importing historical player totals...',
         playersToImport: Object.keys(HISTORICAL_PLAYER_TOTALS).length,
         status: 'started'
       }),

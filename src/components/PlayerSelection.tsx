@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Play, Settings, BarChart3, Upload } from "lucide-react";
+import { Users, Play, Settings, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
@@ -15,10 +15,9 @@ interface Player {
 interface PlayerSelectionProps {
   onStartTournament: (selectedPlayers: Player[]) => void;
   onShowStatistics: () => void;
-  onStartExcelImport?: () => void;
 }
 
-export const PlayerSelection = ({ onStartTournament, onShowStatistics, onStartExcelImport }: PlayerSelectionProps) => {
+export const PlayerSelection = ({ onStartTournament, onShowStatistics }: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,29 +154,15 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onStartEx
                 )}
 
                 <div className="flex flex-col gap-4 pt-4">
-                  <div className="flex gap-4">
-                    <Button
-                      onClick={onShowStatistics}
-                      variant="outline"
-                      className="flex-1 px-8 py-3 text-lg"
-                      size="lg"
-                    >
-                      <BarChart3 className="h-5 w-5 mr-2" />
-                      Statistiken
-                    </Button>
-                    
-                    {onStartExcelImport && (
-                      <Button
-                        onClick={onStartExcelImport}
-                        variant="secondary"
-                        className="px-6 py-3 text-lg hover:bg-primary hover:text-primary-foreground transition-colors"
-                        size="lg"
-                      >
-                        <Upload className="h-5 w-5 mr-2" />
-                        Excel Import
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    onClick={onShowStatistics}
+                    variant="outline"
+                    className="w-full px-8 py-3 text-lg"
+                    size="lg"
+                  >
+                    <BarChart3 className="h-5 w-5 mr-2" />
+                    Statistiken
+                  </Button>
                   
                   <Button
                     onClick={handleStartTournament}
