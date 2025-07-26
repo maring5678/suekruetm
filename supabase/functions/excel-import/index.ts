@@ -142,15 +142,15 @@ function getPlayerSkill(player: string): number {
   return skills[player] || 0.5;
 }
 
-async function processTournamentsBatch(supabase: any, startIndex: number = 0, batchSize: number = 10): Promise<any[]> {
+async function processTournamentsBatch(supabase: any, tournamentNames: string[], startIndex: number = 0, batchSize: number = 10): Promise<any[]> {
   const results = [];
-  const endIndex = Math.min(startIndex + batchSize, ALL_TOURNAMENTS.length);
+  const endIndex = Math.min(startIndex + batchSize, tournamentNames.length);
   
-  console.log(`Processing tournaments ${startIndex + 1}-${endIndex} of ${ALL_TOURNAMENTS.length}...`);
+  console.log(`Processing tournaments ${startIndex + 1}-${endIndex} of ${tournamentNames.length}...`);
   
   for (let i = startIndex; i < endIndex; i++) {
-    const tournamentName = ALL_TOURNAMENTS[i];
-    console.log(`Processing tournament ${i + 1}/${ALL_TOURNAMENTS.length}: ${tournamentName}`);
+    const tournamentName = tournamentNames[i];
+    console.log(`Processing tournament ${i + 1}/${tournamentNames.length}: ${tournamentName}`);
     
     try {
       // Prüfe ob Turnier bereits existiert und erstelle es falls nicht
@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
         
         for (const tournamentName of testTournaments) {
           console.log(`Processing Excel tournament: ${tournamentName}`);
-          const batchResults = await processTournamentsBatch(supabase, 0, 1);
+          const batchResults = await processTournamentsBatch(supabase, [tournamentName], 0, 1);
           allResults.push(...batchResults);
           
           // Kurze Pause
