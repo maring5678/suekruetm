@@ -5,16 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Excel-Struktur: Jeder Turniertag (Blatt) hat:
-// - Spalte A: Spielernamen (ab A3 z.B. "Felix w")  
-// - Zeilen A4-A20: Punktzahlen für diesen Spieler für alle Runden
-// Auswertung: Summe pro Spieler pro Tag → Tagesplatzierung → Gesamtsumme
-
+// Vereinfachter Excel-Import: Berechne nur Gesamtpunkte aller Spieler
 const EXCEL_TOURNAMENT_DATA = {
-  // Beispiel basierend auf der Excel-Struktur: Spalte A = Spieler, Zeilen darunter = Punkte
   '21.08.22': {
     playerScores: {
-      'Felix w': [3, 2, 3, 1, 3, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1], // Summe pro Tag
+      'Felix w': [3, 2, 3, 1, 3, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1],
       'Thali': [2, 3, 2, 3, 1, 3, 2, 1, 1, 2, 0, 3, 2, 1, 2, 1, 3],
       'Andi': [1, 1, 1, 2, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 1, 3, 2],
       'Michel': [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
@@ -311,29 +306,57 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verarbeite nur ein paar Test-Turniere basierend auf Excel-Struktur
+    // Vereinfachte Gesamtpunkte-Import
     const processTournamentsBackground = async () => {
       try {
-        console.log('Starting Excel-based tournament processing...');
-        const testTournaments = ['21.08.22', '04.09.22']; // Nur die mit Beispieldaten
-        const allResults = [];
+        console.log('Starting simplified total points import...');
         
-        for (const tournamentName of testTournaments) {
-          console.log(`Processing Excel tournament: ${tournamentName}`);
-          const batchResults = await processTournamentsBatch(supabase, [tournamentName], 0, 1);
-          allResults.push(...batchResults);
+        // Berechne Gesamtpunkte aller Spieler aus allen Turnieren
+        const playerTotals: { [player: string]: number } = {};
+        let totalTournaments = 0;
+        
+        for (const [tournamentName, tournamentData] of Object.entries(EXCEL_TOURNAMENT_DATA)) {
+          console.log(`Processing tournament: ${tournamentName}`);
+          totalTournaments++;
           
-          // Kurze Pause
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Berechne Punkte pro Spieler für dieses Turnier
+          for (const [player, scores] of Object.entries(tournamentData.playerScores)) {
+            const tournamentTotal = scores.reduce((sum, score) => sum + score, 0);
+            playerTotals[player] = (playerTotals[player] || 0) + tournamentTotal;
+            console.log(`${player}: +${tournamentTotal} points from ${tournamentName}`);
+          }
         }
         
-        console.log('Excel tournament processing completed:', allResults);
+        console.log('Final player totals:', playerTotals);
         
-        // Logge Zusammenfassung der Excel-Auswertung
-        const successful = allResults.filter(r => r.success).length;
-        console.log(`Excel processing summary: ${successful} tournaments processed with day rankings`);
+        // Speichere in historical_player_totals Tabelle
+        const results = [];
+        for (const [playerName, totalPoints] of Object.entries(playerTotals)) {
+          try {
+            const { error } = await supabase
+              .from('historical_player_totals')
+              .upsert({
+                player_name: playerName,
+                total_points: totalPoints,
+                tournaments_played: totalTournaments
+              }, {
+                onConflict: 'player_name'
+              });
+            
+            if (error) {
+              console.error(`Error saving ${playerName}:`, error);
+              results.push({ player: playerName, success: false, error: error.message });
+            } else {
+              console.log(`Saved ${playerName}: ${totalPoints} points`);
+              results.push({ player: playerName, success: true, totalPoints });
+            }
+          } catch (error) {
+            console.error(`Error saving ${playerName}:`, error);
+            results.push({ player: playerName, success: false, error: error.message });
+          }
+        }
         
-        return allResults;
+        return results;
       } catch (error) {
         console.error('Excel processing error:', error);
         throw error;
