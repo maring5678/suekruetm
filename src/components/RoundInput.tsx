@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, MapPin, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Trophy, MapPin, Plus, Users, Check, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,13 +19,18 @@ interface RoundInputProps {
   roundNumber: number;
   players: Player[];
   onRoundComplete: (creator: string, trackNumber: string, trackName: string, rankings: Player[]) => void;
+  onPlayersChange: (players: Player[]) => void;
 }
 
-export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInputProps) => {
+export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersChange }: RoundInputProps) => {
   const [creator, setCreator] = useState("");
   const [trackNumber, setTrackNumber] = useState("");
   const [previousCreators, setPreviousCreators] = useState<string[]>([]);
+  const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
+  const [tempSelectedPlayers, setTempSelectedPlayers] = useState<Player[]>(players);
   const [loading, setLoading] = useState(true);
+  const [playersLoading, setPlayersLoading] = useState(false);
+  const [showPlayerDialog, setShowPlayerDialog] = useState(false);
   const [isCustomCreator, setIsCustomCreator] = useState(false);
   const [customCreator, setCustomCreator] = useState("");
   const [showRanking, setShowRanking] = useState(false);
@@ -33,7 +39,12 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
 
   useEffect(() => {
     loadPreviousCreators();
+    loadAvailablePlayers();
   }, []);
+
+  useEffect(() => {
+    setTempSelectedPlayers(players);
+  }, [players]);
 
   const loadPreviousCreators = async () => {
     try {
@@ -71,18 +82,66 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
     }
   };
 
+  const loadAvailablePlayers = async () => {
+    try {
+      setPlayersLoading(true);
+      const { data, error } = await supabase
+        .from('players')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setAvailablePlayers(data || []);
+    } catch (error) {
+      console.error('Fehler beim Laden der Spieler:', error);
+      toast({
+        title: "Fehler",
+        description: "Spieler konnten nicht geladen werden.",
+        variant: "destructive"
+      });
+    } finally {
+      setPlayersLoading(false);
+    }
+  };
+
+  const togglePlayer = (player: Player) => {
+    setTempSelectedPlayers(prev => 
+      prev.find(p => p.id === player.id)
+        ? prev.filter(p => p.id !== player.id)
+        : [...prev, player]
+    );
+  };
+
+  const isPlayerSelected = (playerId: string) => 
+    tempSelectedPlayers.some(p => p.id === playerId);
+
+  const handleSavePlayerChanges = () => {
+    if (tempSelectedPlayers.length >= 2) {
+      onPlayersChange(tempSelectedPlayers);
+      setShowPlayerDialog(false);
+      toast({
+        title: "Teilnehmer aktualisiert",
+        description: `${tempSelectedPlayers.length} Spieler für Runde ${roundNumber} ausgewählt.`
+      });
+    }
+  };
+
+  const handleCancelPlayerEdit = () => {
+    setTempSelectedPlayers(players);
+    setShowPlayerDialog(false);
+  };
   const selectPlayerForRanking = (player: Player, position: number) => {
     const newRankings = [...selectedRankings];
     newRankings[position - 1] = player;
     setSelectedRankings(newRankings);
   };
 
-  const isPlayerSelected = (playerId: string) => 
+  const isRankingPlayerSelected = (playerId: string) => 
     selectedRankings.some(p => p?.id === playerId);
 
   const getAvailablePlayersForPosition = (position: number) => 
     players.filter(player => 
-      !isPlayerSelected(player.id) || selectedRankings[position - 1]?.id === player.id
+      !isRankingPlayerSelected(player.id) || selectedRankings[position - 1]?.id === player.id
     );
 
   const handleRoundComplete = () => {
@@ -210,7 +269,78 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
               </div>
 
               <div className="bg-muted/50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">Teilnehmende Spieler:</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-medium">Teilnehmende Spieler:</h3>
+                  <Dialog open={showPlayerDialog} onOpenChange={setShowPlayerDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Users className="h-4 w-4 mr-2" />
+                        Bearbeiten
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Teilnehmer für Runde {roundNumber} bearbeiten</DialogTitle>
+                        <DialogDescription>
+                          Wählen Sie die Spieler aus, die an dieser Runde teilnehmen sollen.
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      {playersLoading ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                          <p>Lade Spieler...</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                            {availablePlayers.map((player) => (
+                              <Button
+                                key={player.id}
+                                variant={isPlayerSelected(player.id) ? "default" : "outline"}
+                                className="h-auto p-3 text-left justify-start"
+                                onClick={() => togglePlayer(player)}
+                              >
+                                {isPlayerSelected(player.id) && <Check className="h-4 w-4 mr-2" />}
+                                {player.name}
+                              </Button>
+                            ))}
+                          </div>
+
+                          {tempSelectedPlayers.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="font-medium">
+                                Ausgewählte Spieler ({tempSelectedPlayers.length})
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {tempSelectedPlayers.map((player) => (
+                                  <Badge key={player.id} variant="secondary" className="text-sm">
+                                    {player.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-end gap-2 pt-4">
+                            <Button
+                              onClick={handleCancelPlayerEdit}
+                              variant="outline"
+                            >
+                              Abbrechen
+                            </Button>
+                            <Button
+                              onClick={handleSavePlayerChanges}
+                              disabled={tempSelectedPlayers.length < 2}
+                            >
+                              Bestätigen ({tempSelectedPlayers.length} Spieler)
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {players.map((player) => (
                     <Badge key={player.id} variant="outline">

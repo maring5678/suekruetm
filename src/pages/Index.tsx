@@ -292,6 +292,7 @@ const Index = () => {
           roundNumber={currentRound}
           players={selectedPlayers}
           onRoundComplete={handleRoundComplete}
+          onPlayersChange={handlePlayersConfirmed}
         />
       );
     
