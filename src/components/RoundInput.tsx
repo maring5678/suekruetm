@@ -22,7 +22,8 @@ interface RoundInputProps {
 export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComplete }: RoundInputProps) => {
   const [creator, setCreator] = useState("");
   const [trackNumber, setTrackNumber] = useState("");
-  const [isCustomCreator, setIsCustomCreator] = useState(false);
+  // Wenn keine vorherigen Ersteller vorhanden sind, automatisch Custom-Modus aktivieren
+  const [isCustomCreator, setIsCustomCreator] = useState(previousCreators.length === 0);
   const [customCreator, setCustomCreator] = useState("");
   const [showRanking, setShowRanking] = useState(false);
   const [selectedRankings, setSelectedRankings] = useState<Player[]>([]);
