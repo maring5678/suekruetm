@@ -3,6 +3,7 @@ import { PlayerSelection } from "@/components/PlayerSelection";
 import { RoundInput } from "@/components/RoundInput";
 import { Leaderboard } from "@/components/Leaderboard";
 import { TournamentComplete } from "@/components/TournamentComplete";
+import { Statistics } from "@/components/Statistics";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,7 +23,7 @@ interface PlayerScore {
   }[];
 }
 
-type GameState = "player-selection" | "round-input" | "leaderboard" | "tournament-complete";
+type GameState = "player-selection" | "round-input" | "leaderboard" | "tournament-complete" | "statistics";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -227,9 +228,17 @@ const Index = () => {
     setCurrentTournamentId(null);
   };
 
+  const handleShowStatistics = () => {
+    setGameState("statistics");
+  };
+
+  const handleBackFromStatistics = () => {
+    setGameState("player-selection");
+  };
+
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
     
     case "round-input":
       return (
@@ -258,6 +267,9 @@ const Index = () => {
           onNewTournament={handleNewTournament}
         />
       );
+    
+    case "statistics":
+      return <Statistics onBack={handleBackFromStatistics} />;
     
     default:
       return null;
