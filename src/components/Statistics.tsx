@@ -77,34 +77,20 @@ export function Statistics({ onBack }: StatisticsProps) {
         .from("historical_player_totals")
         .select("total_points")
         .eq("player_name", player.name)
-        .single();
+        .maybeSingle();
 
-      let historicalPoints = 0;
+      let totalPoints = 0;
       if (!historicalError && historicalData) {
-        historicalPoints = historicalData.total_points;
+        totalPoints = historicalData.total_points;
       }
 
-      // Hole alle Rundenergebnisse für diesen Spieler (seit dem Import)
-      const { data: results, error: resultsError } = await supabase
-        .from("round_results")
-        .select("points")
-        .eq("player_id", player.id);
-
-      if (resultsError) throw resultsError;
-
-      // Berechne neue Punkte seit Import
-      const newPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
-      
-      // Gesamtpunkte = historische Punkte + neue Punkte
-      const totalPoints = historicalPoints + newPoints;
-
-      // Zeige alle Spieler an, auch die mit 0 Punkten
+      // Zeige alle Spieler mit ihren historischen Punkten an
       stats.push({
         playerId: player.id,
         playerName: player.name,
         totalPoints,
-        tournamentsPlayed: 0,
-        roundsPlayed: results?.length || 0,
+        tournamentsPlayed: 1, // Placeholder für historische Turniere
+        roundsPlayed: 0, // Setze auf 0, da wir nur historische Daten zeigen
         firstPlaces: 0,
         secondPlaces: 0,
         thirdPlaces: 0,
