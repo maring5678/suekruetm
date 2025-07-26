@@ -62,7 +62,7 @@ function generateTournamentData(tournamentName: string) {
   }
   
   // Alle echten Spieler aus Spalte 1 der Excel-Datei verwenden
-  const tournamentPlayers = ['Felix W', 'Thali', 'Tho', 'Andi', 'Michel', 'Igor', 'Felix', 'Dani', 'Yve', 'Peter', 'Mary', 'Rochen', 'Mikey', 'Phil', 'Jana', 'Grischa', 'Alex', 'Steffen', 'Franz', 'Andi G'];
+  const tournamentPlayers = ['Felix W', 'Thali', 'Tho', 'Andi', 'Michel', 'Igor', 'Felix', 'Dani', 'Yve', 'Peter', 'Marv', 'Rochen', 'Mikey', 'Phil', 'Jana', 'Grischa', 'Alex', 'Steffen', 'Franz', 'Andi G'];
   
   const rounds = Math.floor(Math.random() * 3) + 4; // 4-6 Runden
   const results: { [key: string]: number[] } = {};
