@@ -61,13 +61,8 @@ function generateTournamentData(tournamentName: string) {
     return SAMPLE_TOURNAMENT_DATA[tournamentName];
   }
   
-  // Nur die echten Spieler aus Spalte 1 verwenden
-  const realPlayers = ['Felix', 'Thali', 'Andi', 'Michel', 'Tho', 'Igor'];
-  
-  // Wähle 4-6 Spieler aus den echten Spielern
-  const playerCount = Math.floor(Math.random() * 3) + 4; // 4-6 Spieler
-  const shuffled = [...realPlayers].sort(() => 0.5 - Math.random());
-  const tournamentPlayers = shuffled.slice(0, playerCount);
+  // Alle echten Spieler aus Spalte 1 verwenden
+  const tournamentPlayers = ['Felix', 'Thali', 'Andi', 'Michel', 'Tho', 'Igor'];
   
   const rounds = Math.floor(Math.random() * 3) + 4; // 4-6 Runden
   const results: { [key: string]: number[] } = {};
