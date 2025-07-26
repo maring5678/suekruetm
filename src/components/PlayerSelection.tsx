@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Play, Settings, BarChart3 } from "lucide-react";
+import { Users, Play, Settings, BarChart3, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
@@ -170,9 +170,10 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onStartEx
                       <Button
                         onClick={onStartExcelImport}
                         variant="secondary"
-                        className="px-6 py-3 text-lg"
+                        className="px-6 py-3 text-lg hover:bg-primary hover:text-primary-foreground transition-colors"
                         size="lg"
                       >
+                        <Upload className="h-5 w-5 mr-2" />
                         Excel Import
                       </Button>
                     )}
