@@ -72,73 +72,32 @@ export function Statistics({ onBack }: StatisticsProps) {
     const stats: PlayerStats[] = [];
 
     for (const player of players || []) {
-      // Hole alle Rundenergebnisse für diesen Spieler
+      // Hole alle Rundenergebnisse für diesen Spieler (auch aus nicht abgeschlossenen Turnieren)
       const { data: results, error: resultsError } = await supabase
         .from("round_results")
-        .select(`
-          position,
-          points,
-          round_id,
-          rounds!inner(
-            tournament_id,
-            tournaments!inner(completed_at)
-          )
-        `)
+        .select("points")
         .eq("player_id", player.id);
 
       if (resultsError) throw resultsError;
 
-      // Filtere nur Ergebnisse aus abgeschlossenen Turnieren
-      const completedResults = results?.filter(r => 
-        r.rounds?.tournaments?.completed_at !== null
-      ) || [];
+      // Einfache Berechnung: Nur Gesamtpunkte
+      const totalPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
 
-      // Berechne Statistiken
-      const totalPoints = completedResults.reduce((sum, r) => sum + r.points, 0);
-      const roundsPlayed = completedResults.length;
-      const firstPlaces = completedResults.filter(r => r.position === 1).length;
-      const secondPlaces = completedResults.filter(r => r.position === 2).length;
-      const thirdPlaces = completedResults.filter(r => r.position === 3).length;
-      
-      // Hole Turniere für diesen Spieler
-      const { data: tournaments } = await supabase
-        .from("tournament_players")
-        .select(`
-          tournament_id,
-          tournaments!inner(completed_at)
-        `)
-        .eq("player_id", player.id);
-
-      const completedTournaments = tournaments?.filter(t => 
-        t.tournaments?.completed_at !== null
-      ).length || 0;
-
-      // Berechne Durchschnittswerte
-      const averagePointsPerRound = roundsPlayed > 0 ? totalPoints / roundsPlayed : 0;
-      
-      // Für durchschnittliche Platzierung: Nur gezählte Plätze (1-3) verwenden
-      const rankedResults = completedResults.filter(r => r.position <= 3);
-      const averageRanking = rankedResults.length > 0 
-        ? rankedResults.reduce((sum, r) => sum + r.position, 0) / rankedResults.length
-        : 0;
-      
-      const winRate = roundsPlayed > 0 ? (firstPlaces / roundsPlayed) * 100 : 0;
-      const podiumRate = roundsPlayed > 0 ? ((firstPlaces + secondPlaces + thirdPlaces) / roundsPlayed) * 100 : 0;
-
-      if (roundsPlayed > 0) {
+      // Nur Spieler mit Punkten anzeigen
+      if (totalPoints > 0) {
         stats.push({
           playerId: player.id,
           playerName: player.name,
           totalPoints,
-          tournamentsPlayed: completedTournaments,
-          roundsPlayed,
-          firstPlaces,
-          secondPlaces,
-          thirdPlaces,
-          averagePointsPerRound,
-          averageRanking,
-          winRate,
-          podiumRate,
+          tournamentsPlayed: 0,
+          roundsPlayed: results?.length || 0,
+          firstPlaces: 0,
+          secondPlaces: 0,
+          thirdPlaces: 0,
+          averagePointsPerRound: 0,
+          averageRanking: 0,
+          winRate: 0,
+          podiumRate: 0,
         });
       }
     }
@@ -248,144 +207,46 @@ export function Statistics({ onBack }: StatisticsProps) {
           </TabsList>
 
           <TabsContent value="players" className="space-y-6">
-            {/* Übersicht der Top Spieler */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Meiste Punkte</CardTitle>
-                  <Trophy className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {playerStats[0]?.playerName || "N/A"}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {playerStats[0]?.totalPoints || 0} Punkte
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Beste Siegrate</CardTitle>
-                  <Target className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {playerStats.sort((a, b) => b.winRate - a.winRate)[0]?.playerName || "N/A"}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {(playerStats.sort((a, b) => b.winRate - a.winRate)[0]?.winRate || 0).toFixed(1)}%
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Meiste Siege</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {playerStats.sort((a, b) => b.firstPlaces - a.firstPlaces)[0]?.playerName || "N/A"}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {playerStats.sort((a, b) => b.firstPlaces - a.firstPlaces)[0]?.firstPlaces || 0} Siege
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Beste Podiumsrate</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {playerStats.sort((a, b) => b.podiumRate - a.podiumRate)[0]?.playerName || "N/A"}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {(playerStats.sort((a, b) => b.podiumRate - a.podiumRate)[0]?.podiumRate || 0).toFixed(1)}%
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Detaillierte Spielerstatistiken */}
+            {/* Einfache Punkteübersicht */}
             <Card>
               <CardHeader>
-                <CardTitle>Alle Spieler Statistiken</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  Spieler nach Gesamtpunkten
+                </CardTitle>
                 <CardDescription>
-                  Umfassende Leistungsanalyse aller Spieler
+                  Rangliste aller Spieler basierend auf Gesamtpunktzahl
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {playerStats.map((player, index) => (
-                    <div key={player.playerId} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
+                {playerStats.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    Keine Spielerdaten gefunden. Erstelle zuerst ein Turnier mit Rundenergebnissen.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {playerStats.map((player, index) => (
+                      <div key={player.playerId} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           {getRankIcon(index)}
                           <div>
-                            <h3 className="font-semibold text-lg">{player.playerName}</h3>
+                            <h3 className="font-semibold">{player.playerName}</h3>
                             <p className="text-sm text-muted-foreground">
-                              {player.totalPoints} Gesamtpunkte
+                              {player.roundsPlayed} Runden gespielt
                             </p>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Badge variant={player.winRate > 20 ? "default" : "secondary"}>
-                            {player.winRate.toFixed(1)}% Siegrate
-                          </Badge>
-                          <Badge variant="outline">
-                            {player.podiumRate.toFixed(1)}% Podium
-                          </Badge>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold">{player.totalPoints}</div>
+                          <div className="text-sm text-muted-foreground">Punkte</div>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Turniere</p>
-                          <p className="font-medium">{player.tournamentsPlayed}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Runden</p>
-                          <p className="font-medium">{player.roundsPlayed}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">1. Plätze</p>
-                          <p className="font-medium text-yellow-600">{player.firstPlaces}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">2. Plätze</p>
-                          <p className="font-medium text-gray-600">{player.secondPlaces}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">3. Plätze</p>
-                          <p className="font-medium text-amber-700">{player.thirdPlaces}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Ø Punkte/Runde</p>
-                          <p className="font-medium">{player.averagePointsPerRound.toFixed(1)}</p>
-                        </div>
-                        {player.averageRanking > 0 && (
-                          <div>
-                            <p className="text-muted-foreground">Ø Platzierung*</p>
-                            <p className="font-medium">{player.averageRanking.toFixed(1)}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {playerStats.some(p => p.averageRanking > 0) && (
-                  <p className="text-xs text-muted-foreground mt-4">
-                    * Durchschnittliche Platzierung basiert nur auf Top-3-Plätzen (1-3)
-                  </p>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
+
           </TabsContent>
 
           <TabsContent value="tournaments" className="space-y-6">
