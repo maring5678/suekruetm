@@ -98,7 +98,15 @@ const Index = () => {
     if (!currentTournamentId) return;
     
     try {
-      const pointsMap = { 1: 3, 2: 2, 3: 1 };
+      // Dynamische Punktevergabe basierend auf Anzahl der Spieler
+      let pointsMap: Record<number, number> = {};
+      if (selectedPlayers.length === 2) {
+        pointsMap = { 1: 1 }; // Nur 1. Platz bekommt 1 Punkt
+      } else if (selectedPlayers.length === 3) {
+        pointsMap = { 1: 2, 2: 1 }; // 1. Platz: 2 Punkte, 2. Platz: 1 Punkt
+      } else {
+        pointsMap = { 1: 3, 2: 2, 3: 1 }; // Standard: 3-2-1 Punkte
+      }
       
       // Ersteller zur Liste hinzufügen wenn noch nicht vorhanden
       if (!previousCreators.includes(creator)) {

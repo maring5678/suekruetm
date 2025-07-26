@@ -86,10 +86,23 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
     );
 
   const handleRoundComplete = () => {
-    if (selectedRankings.length === 3 && selectedRankings.every(p => p)) {
+    const requiredSelections = players.length === 2 ? 1 : players.length === 3 ? 2 : 3;
+    const validSelections = selectedRankings.slice(0, requiredSelections).filter(p => p);
+    
+    if (validSelections.length === requiredSelections) {
       const finalCreator = isCustomCreator ? customCreator : creator;
       const trackName = `${finalCreator} #${trackNumber}`;
-      onRoundComplete(finalCreator, trackNumber, trackName, selectedRankings);
+      onRoundComplete(finalCreator, trackNumber, trackName, validSelections);
+    }
+  };
+
+  const getPointsForPosition = (position: number, totalPlayers: number) => {
+    if (totalPlayers === 2) {
+      return position === 1 ? 1 : 0;
+    } else if (totalPlayers === 3) {
+      return position === 1 ? 2 : position === 2 ? 1 : 0;
+    } else {
+      return position === 1 ? 3 : position === 2 ? 2 : position === 3 ? 1 : 0;
     }
   };
 
@@ -184,6 +197,9 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
                   <Label htmlFor="trackNumber">Streckennummer</Label>
                   <Input
                     id="trackNumber"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={trackNumber}
                     onChange={(e) => setTrackNumber(e.target.value)}
                     placeholder="z.B. 1, 2, 3..."
@@ -238,7 +254,14 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((position) => (
+              {[1, 2, 3].filter(position => {
+                // Bei 2 Spielern nur 1. Platz anzeigen
+                if (players.length === 2) return position === 1;
+                // Bei 3 Spielern nur 1. und 2. Platz anzeigen  
+                if (players.length === 3) return position <= 2;
+                // Bei mehr als 3 Spielern alle 3 Plätze anzeigen
+                return position <= 3;
+              }).map((position) => (
                 <Card key={position} className="relative">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg text-center">
@@ -247,7 +270,7 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
                         variant={getRankingBadgeVariant(position)}
                         className="ml-2"
                       >
-                        {position === 1 ? "3" : position === 2 ? "2" : "1"} Punkte
+                        {getPointsForPosition(position, players.length)} {getPointsForPosition(position, players.length) === 1 ? "Punkt" : "Punkte"}
                       </Badge>
                     </CardTitle>
                   </CardHeader>
@@ -270,7 +293,11 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
             <div className="flex justify-center pt-4">
               <Button
                 onClick={handleRoundComplete}
-                disabled={selectedRankings.length < 3 || !selectedRankings.every(p => p)}
+                disabled={
+                  players.length === 2 ? selectedRankings.length < 1 || !selectedRankings[0] :
+                  players.length === 3 ? selectedRankings.length < 2 || !selectedRankings.slice(0, 2).every(p => p) :
+                  selectedRankings.length < 3 || !selectedRankings.slice(0, 3).every(p => p)
+                }
                 size="lg"
                 className="px-8"
               >
