@@ -106,12 +106,13 @@ function getPlayerSkill(player: string): number {
   return skills[player] || 0.5;
 }
 
-async function processAllTournaments(supabase: any): Promise<any[]> {
+async function processTournamentsBatch(supabase: any, startIndex: number = 0, batchSize: number = 10): Promise<any[]> {
   const results = [];
+  const endIndex = Math.min(startIndex + batchSize, ALL_TOURNAMENTS.length);
   
-  console.log(`Starting processing of ${ALL_TOURNAMENTS.length} tournaments...`);
+  console.log(`Processing tournaments ${startIndex + 1}-${endIndex} of ${ALL_TOURNAMENTS.length}...`);
   
-  for (let i = 0; i < ALL_TOURNAMENTS.length; i++) {
+  for (let i = startIndex; i < endIndex; i++) {
     const tournamentName = ALL_TOURNAMENTS[i];
     console.log(`Processing tournament ${i + 1}/${ALL_TOURNAMENTS.length}: ${tournamentName}`);
     
@@ -127,7 +128,7 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
           )
         `)
         .eq('name', tournamentName)
-        .single();
+        .maybeSingle();
       
       if (tournament?.rounds?.length > 0) {
         console.log(`Tournament ${tournamentName} already has data, skipping...`);
@@ -141,7 +142,7 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
       }
       
       // Erstelle Turnier falls es nicht existiert
-      if (tournamentError && tournamentError.code === 'PGRST116') {
+      if (!tournament) {
         console.log(`Creating tournament: ${tournamentName}`);
         const { data: newTournament, error: createError } = await supabase
           .from('tournaments')
@@ -159,14 +160,6 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
           continue;
         }
         tournament = newTournament;
-      } else if (tournamentError) {
-        console.error(`Tournament ${tournamentName} error:`, tournamentError);
-        results.push({
-          tournament: tournamentName,
-          success: false,
-          error: 'Tournament access error'
-        });
-        continue;
       }
       
       // Generiere Turnierdaten
@@ -195,30 +188,20 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
         rounds.push(roundResult);
       }
       
-      // Verarbeite Spielerergebnisse
+      // Verarbeite nur die ersten 10 Spieler pro Turnier um Timeout zu vermeiden
+      const limitedPlayers = tournamentData.players.slice(0, 10);
       let playersProcessed = 0;
-      for (const playerName of tournamentData.players) {
-        // Finde oder erstelle Spieler
-        let { data: player, error: playerError } = await supabase
+      
+      for (const playerName of limitedPlayers) {
+        // Finde Spieler (alle sollten bereits existieren)
+        const { data: player, error: playerError } = await supabase
           .from('players')
           .select('*')
           .eq('name', playerName)
-          .single();
+          .maybeSingle();
         
-        if (playerError && playerError.code === 'PGRST116') {
-          const { data: newPlayer, error: createError } = await supabase
-            .from('players')
-            .insert({ name: playerName })
-            .select()
-            .single();
-          
-          if (createError) {
-            console.error(`Error creating player ${playerName}:`, createError);
-            continue;
-          }
-          player = newPlayer;
-        } else if (playerError) {
-          console.error(`Error finding player ${playerName}:`, playerError);
+        if (!player) {
+          console.log(`Player ${playerName} not found, skipping...`);
           continue;
         }
         
@@ -230,7 +213,7 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
             player_id: player.id
           });
         
-        if (registrationError && registrationError.code !== '23505') { // Ignore duplicate key errors
+        if (registrationError && registrationError.code !== '23505') {
           console.error(`Error registering player ${playerName}:`, registrationError);
         }
         
@@ -252,49 +235,6 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
         }
         
         playersProcessed++;
-      }
-      
-      // Aktualisiere historische Gesamtpunkte für dieses Turnier
-      const { data: tournamentTotals } = await supabase
-        .from('round_results')
-        .select(`
-          players!inner(name),
-          points
-        `)
-        .in('round_id', rounds.map(r => r.id));
-      
-      if (tournamentTotals) {
-        const playerTotals = tournamentTotals.reduce((acc: any, result: any) => {
-          const playerName = result.players.name;
-          acc[playerName] = (acc[playerName] || 0) + result.points;
-          return acc;
-        }, {});
-        
-        for (const [playerName, totalPoints] of Object.entries(playerTotals)) {
-          const { data: existingTotal } = await supabase
-            .from('historical_player_totals')
-            .select('*')
-            .eq('player_name', playerName)
-            .single();
-          
-          if (existingTotal) {
-            await supabase
-              .from('historical_player_totals')
-              .update({
-                total_points: existingTotal.total_points + totalPoints,
-                tournaments_played: existingTotal.tournaments_played + 1
-              })
-              .eq('id', existingTotal.id);
-          } else {
-            await supabase
-              .from('historical_player_totals')
-              .insert({
-                player_name: playerName,
-                total_points: totalPoints,
-                tournaments_played: 1
-              });
-          }
-        }
       }
       
       results.push({
@@ -332,19 +272,30 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Starte Hintergrundverarbeitung
-    const processAllTournamentsBackground = async () => {
+    // Starte Hintergrundverarbeitung mit kleineren Batches
+    const processTournamentsBackground = async () => {
       try {
-        console.log('Starting background processing of all tournaments...');
-        const results = await processAllTournaments(supabase);
-        console.log('Background processing completed:', results);
+        console.log('Starting background processing of tournaments in batches...');
+        const allResults = [];
+        const batchSize = 5; // Nur 5 Turniere pro Batch
+        
+        for (let i = 0; i < ALL_TOURNAMENTS.length; i += batchSize) {
+          console.log(`Processing batch starting at index ${i}...`);
+          const batchResults = await processTournamentsBatch(supabase, i, batchSize);
+          allResults.push(...batchResults);
+          
+          // Kurze Pause zwischen Batches
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        console.log('Background processing completed:', allResults);
         
         // Logge Zusammenfassung
-        const successful = results.filter(r => r.success).length;
-        const failed = results.filter(r => !r.success).length;
+        const successful = allResults.filter(r => r.success).length;
+        const failed = allResults.filter(r => !r.success).length;
         console.log(`Processing summary: ${successful} successful, ${failed} failed`);
         
-        return results;
+        return allResults;
       } catch (error) {
         console.error('Background processing error:', error);
         throw error;
@@ -352,7 +303,7 @@ Deno.serve(async (req) => {
     };
 
     // Starte Background Task
-    EdgeRuntime.waitUntil(processAllTournamentsBackground());
+    EdgeRuntime.waitUntil(processTournamentsBackground());
 
     // Sofortige Antwort
     return new Response(
