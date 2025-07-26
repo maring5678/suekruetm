@@ -244,6 +244,32 @@ const Index = () => {
     setGameState("player-selection");
   };
 
+  const handlePlayersChange = (newPlayers: Player[]) => {
+    setSelectedPlayers(newPlayers);
+    
+    // Aktualisiere playerScores: Neue Spieler hinzufügen, entfernte behalten ihre Punkte
+    setPlayerScores(prevScores => {
+      const newScores: PlayerScore[] = [];
+      
+      // Bestehende Spieler beibehalten
+      newPlayers.forEach(player => {
+        const existingScore = prevScores.find(score => score.player.id === player.id);
+        if (existingScore) {
+          newScores.push(existingScore);
+        } else {
+          // Neuer Spieler
+          newScores.push({
+            player,
+            totalPoints: 0,
+            roundResults: []
+          });
+        }
+      });
+      
+      return newScores;
+    });
+  };
+
   switch (gameState) {
     case "player-selection":
       return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
@@ -262,8 +288,10 @@ const Index = () => {
         <Leaderboard
           playerScores={playerScores}
           currentRound={currentRound}
+          selectedPlayers={selectedPlayers}
           onNextRound={handleNextRound}
           onEndTournament={handleEndTournament}
+          onPlayersChange={handlePlayersChange}
         />
       );
     
