@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      historical_player_totals: {
+        Row: {
+          created_at: string
+          id: string
+          player_name: string
+          total_points: number
+          tournaments_played: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          player_name: string
+          total_points?: number
+          tournaments_played?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          player_name?: string
+          total_points?: number
+          tournaments_played?: number
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           created_at: string
