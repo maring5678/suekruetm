@@ -245,6 +245,33 @@ const Index = () => {
     setGameState("player-selection");
   };
 
+  const handleStartExcelImport = async () => {
+    try {
+      toast({
+        title: "Import gestartet",
+        description: "Excel-Import läuft im Hintergrund. Das kann einige Minuten dauern..."
+      });
+
+      const { data, error } = await supabase.functions.invoke('excel-import', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Import erfolgreich",
+        description: `${data.tournamentsToProcess} Turniere werden verarbeitet. Status: ${data.status}`
+      });
+    } catch (error) {
+      console.error('Excel Import Fehler:', error);
+      toast({
+        title: "Import Fehler",
+        description: "Excel-Import konnte nicht gestartet werden.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handlePlayersConfirmed = (newPlayers: Player[]) => {
     setSelectedPlayers(newPlayers);
     
@@ -275,7 +302,7 @@ const Index = () => {
 
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onStartExcelImport={handleStartExcelImport} />;
     
     case "player-edit":
       return (
