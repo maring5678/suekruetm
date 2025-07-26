@@ -5,27 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Vereinfachter Excel-Import: Berechne nur Gesamtpunkte aller Spieler
-const EXCEL_TOURNAMENT_DATA = {
-  '21.08.22': {
-    playerScores: {
-      'Felix w': [3, 2, 3, 1, 3, 2, 1, 0, 2, 3, 1, 2, 0, 1, 3, 2, 1],
-      'Thali': [2, 3, 2, 3, 1, 3, 2, 1, 1, 2, 0, 3, 2, 1, 2, 1, 3],
-      'Andi': [1, 1, 1, 2, 2, 1, 3, 2, 3, 1, 2, 1, 3, 2, 1, 3, 2],
-      'Michel': [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
-      'Tho': [0, 2, 0, 1, 1, 2, 0, 3, 0, 1, 3, 0, 0, 3, 0, 1, 0],
-      'Igor': [1, 0, 1, 0, 2, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1]
-    }
-  },
-  '04.09.22': {
-    playerScores: {
-      'Felix w': [3, 3, 2, 3, 2, 1, 3, 2, 1, 0, 2, 3, 1, 2, 0],
-      'Thali': [2, 2, 3, 2, 3, 2, 1, 3, 2, 1, 1, 2, 0, 3, 2],
-      'Andi': [1, 1, 1, 1, 1, 3, 2, 1, 3, 2, 3, 1, 2, 1, 3],
-      'Tho': [2, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 3, 0, 1],
-      'Igor': [0, 2, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0]
-    }
-  }
+// Bisherige Gesamtpunktzahlen aus der Excel-Tabelle
+const HISTORICAL_PLAYER_TOTALS = {
+  'Felix': 1222,
+  'Felix W': 708,
+  'Tho': 435,
+  'Michel': 381,
+  'Andi': 324,
+  'Marv': 209,
+  'Thali': 196,
+  'Igor': 45,
+  'Peter': 31,
+  'Rochen': 4,
+  'Yve': 4,
+  'Dani': 1,
+  'Jana': 0,
+  'Mikey': 0,
+  'Phil': 0
 };
 
 // Funktion zur Auswertung der Excel-Daten nach deiner Beschreibung
@@ -311,34 +307,19 @@ Deno.serve(async (req) => {
       try {
         console.log('Starting simplified total points import...');
         
-        // Berechne Gesamtpunkte aller Spieler aus allen Turnieren
-        const playerTotals: { [player: string]: number } = {};
-        let totalTournaments = 0;
-        
-        for (const [tournamentName, tournamentData] of Object.entries(EXCEL_TOURNAMENT_DATA)) {
-          console.log(`Processing tournament: ${tournamentName}`);
-          totalTournaments++;
-          
-          // Berechne Punkte pro Spieler für dieses Turnier
-          for (const [player, scores] of Object.entries(tournamentData.playerScores)) {
-            const tournamentTotal = scores.reduce((sum, score) => sum + score, 0);
-            playerTotals[player] = (playerTotals[player] || 0) + tournamentTotal;
-            console.log(`${player}: +${tournamentTotal} points from ${tournamentName}`);
-          }
-        }
-        
-        console.log('Final player totals:', playerTotals);
+        // Verwende die historischen Gesamtpunktzahlen direkt
+        console.log('Importing historical player totals:', HISTORICAL_PLAYER_TOTALS);
         
         // Speichere in historical_player_totals Tabelle
         const results = [];
-        for (const [playerName, totalPoints] of Object.entries(playerTotals)) {
+        for (const [playerName, totalPoints] of Object.entries(HISTORICAL_PLAYER_TOTALS)) {
           try {
             const { error } = await supabase
               .from('historical_player_totals')
               .upsert({
                 player_name: playerName,
                 total_points: totalPoints,
-                tournaments_played: totalTournaments
+                tournaments_played: 1 // Placeholder, wird später durch echte Turniere überschrieben
               }, {
                 onConflict: 'player_name'
               });
