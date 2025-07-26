@@ -161,9 +161,18 @@ export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComp
                   onClick={handleTrackSubmit}
                   disabled={!(isCustomCreator ? customCreator.trim() : creator) || !trackNumber.trim()}
                   size="lg"
+                  className="w-full max-w-sm"
                 >
                   Weiter zur Platzierung
                 </Button>
+              </div>
+              
+              {/* Debug Info */}
+              <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                <p>Debug: Creator: "{isCustomCreator ? customCreator : creator}"</p>
+                <p>Track Number: "{trackNumber}"</p>
+                <p>Is Custom: {isCustomCreator.toString()}</p>
+                <p>Button Enabled: {((isCustomCreator ? customCreator.trim() : creator) && trackNumber.trim()).toString()}</p>
               </div>
             </CardContent>
           </Card>
