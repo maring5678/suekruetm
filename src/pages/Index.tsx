@@ -30,7 +30,7 @@ const Index = () => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([]);
-  const [previousCreators, setPreviousCreators] = useState<string[]>([]);
+  const [previousCreators, setPreviousCreators] = useState<string[]>([]); // Wird nicht mehr verwendet
   const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -245,7 +245,6 @@ const Index = () => {
         <RoundInput
           roundNumber={currentRound}
           players={selectedPlayers}
-          previousCreators={previousCreators}
           onRoundComplete={handleRoundComplete}
         />
       );

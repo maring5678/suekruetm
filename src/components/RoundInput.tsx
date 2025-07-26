@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trophy, MapPin, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Player {
   id: string;
@@ -15,18 +17,52 @@ interface Player {
 interface RoundInputProps {
   roundNumber: number;
   players: Player[];
-  previousCreators: string[];
   onRoundComplete: (creator: string, trackNumber: string, trackName: string, rankings: Player[]) => void;
 }
 
-export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComplete }: RoundInputProps) => {
+export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInputProps) => {
   const [creator, setCreator] = useState("");
   const [trackNumber, setTrackNumber] = useState("");
-  // Wenn keine vorherigen Ersteller vorhanden sind, automatisch Custom-Modus aktivieren
-  const [isCustomCreator, setIsCustomCreator] = useState(previousCreators.length === 0);
+  const [previousCreators, setPreviousCreators] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCustomCreator, setIsCustomCreator] = useState(false);
   const [customCreator, setCustomCreator] = useState("");
   const [showRanking, setShowRanking] = useState(false);
   const [selectedRankings, setSelectedRankings] = useState<Player[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadPreviousCreators();
+  }, []);
+
+  const loadPreviousCreators = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('rounds')
+        .select('creator')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Einzigartige Creator extrahieren
+      const uniqueCreators = Array.from(new Set(data?.map(round => round.creator) || []));
+      setPreviousCreators(uniqueCreators);
+      
+      // Wenn keine vorherigen Ersteller vorhanden sind, automatisch Custom-Modus aktivieren
+      setIsCustomCreator(uniqueCreators.length === 0);
+    } catch (error) {
+      console.error('Fehler beim Laden der Ersteller:', error);
+      toast({
+        title: "Warnung",
+        description: "Vorherige Ersteller konnten nicht geladen werden.",
+        variant: "destructive"
+      });
+      setIsCustomCreator(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTrackSubmit = () => {
     const finalCreator = isCustomCreator ? customCreator : creator;
@@ -65,6 +101,17 @@ export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComp
       default: return "outline";
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Lade Ersteller...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!showRanking) {
     return (
@@ -168,13 +215,7 @@ export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComp
                 </Button>
               </div>
               
-              {/* Debug Info */}
-              <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                <p>Debug: Creator: "{isCustomCreator ? customCreator : creator}"</p>
-                <p>Track Number: "{trackNumber}"</p>
-                <p>Is Custom: {isCustomCreator.toString()}</p>
-                <p>Button Enabled: {((isCustomCreator ? customCreator.trim() : creator) && trackNumber.trim()).toString()}</p>
-              </div>
+              {/* Debug Info entfernt für bessere UX */}
             </CardContent>
           </Card>
         </div>
