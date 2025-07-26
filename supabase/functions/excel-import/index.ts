@@ -62,7 +62,7 @@ function generateTournamentData(tournamentName: string) {
   }
   
   // Alle echten Spieler aus Spalte 1 der Excel-Datei verwenden
-  const tournamentPlayers = ['Felix W', 'Thali', 'Tho', 'Andi', 'Michel', 'Igor', 'Inix', 'Dani', 'Yve', 'Peter', 'Marv', 'Rochen', 'Mikey', 'Phil', 'Jana', 'Grischa', 'Alex', 'Steffen', 'Franz', 'Andi G'];
+  const tournamentPlayers = ['Felix W', 'Thali', 'Tho', 'Andi', 'Michel', 'Igor', 'Felix', 'Dani', 'Yve', 'Peter', 'Mary', 'Rochen', 'Mikey', 'Phil', 'Jana', 'Grischa', 'Alex', 'Steffen', 'Franz', 'Andi G'];
   
   const rounds = Math.floor(Math.random() * 3) + 4; // 4-6 Runden
   const results: { [key: string]: number[] } = {};
@@ -116,8 +116,8 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
     console.log(`Processing tournament ${i + 1}/${ALL_TOURNAMENTS.length}: ${tournamentName}`);
     
     try {
-      // Prüfe ob Turnier bereits existiert und Daten hat
-      const { data: existingTournament } = await supabase
+      // Prüfe ob Turnier bereits existiert und erstelle es falls nicht
+      let { data: tournament, error: tournamentError } = await supabase
         .from('tournaments')
         .select(`
           id,
@@ -129,7 +129,7 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
         .eq('name', tournamentName)
         .single();
       
-      if (existingTournament?.rounds?.length > 0) {
+      if (tournament?.rounds?.length > 0) {
         console.log(`Tournament ${tournamentName} already has data, skipping...`);
         results.push({
           tournament: tournamentName,
@@ -140,19 +140,31 @@ async function processAllTournaments(supabase: any): Promise<any[]> {
         continue;
       }
       
-      // Hole Turnier-ID
-      const { data: tournament, error: tournamentError } = await supabase
-        .from('tournaments')
-        .select('id')
-        .eq('name', tournamentName)
-        .single();
-      
-      if (tournamentError) {
-        console.error(`Tournament ${tournamentName} not found:`, tournamentError);
+      // Erstelle Turnier falls es nicht existiert
+      if (tournamentError && tournamentError.code === 'PGRST116') {
+        console.log(`Creating tournament: ${tournamentName}`);
+        const { data: newTournament, error: createError } = await supabase
+          .from('tournaments')
+          .insert({ name: tournamentName })
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error(`Error creating tournament ${tournamentName}:`, createError);
+          results.push({
+            tournament: tournamentName,
+            success: false,
+            error: 'Failed to create tournament'
+          });
+          continue;
+        }
+        tournament = newTournament;
+      } else if (tournamentError) {
+        console.error(`Tournament ${tournamentName} error:`, tournamentError);
         results.push({
           tournament: tournamentName,
           success: false,
-          error: 'Tournament not found'
+          error: 'Tournament access error'
         });
         continue;
       }
