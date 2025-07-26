@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, MapPin } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trophy, MapPin, Plus } from "lucide-react";
 
 interface Player {
   id: string;
@@ -14,16 +15,21 @@ interface Player {
 interface RoundInputProps {
   roundNumber: number;
   players: Player[];
-  onRoundComplete: (trackName: string, rankings: Player[]) => void;
+  previousCreators: string[];
+  onRoundComplete: (creator: string, trackNumber: string, trackName: string, rankings: Player[]) => void;
 }
 
-export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInputProps) => {
-  const [trackName, setTrackName] = useState("");
+export const RoundInput = ({ roundNumber, players, previousCreators, onRoundComplete }: RoundInputProps) => {
+  const [creator, setCreator] = useState("");
+  const [trackNumber, setTrackNumber] = useState("");
+  const [isCustomCreator, setIsCustomCreator] = useState(false);
+  const [customCreator, setCustomCreator] = useState("");
   const [showRanking, setShowRanking] = useState(false);
   const [selectedRankings, setSelectedRankings] = useState<Player[]>([]);
 
   const handleTrackSubmit = () => {
-    if (trackName.trim()) {
+    const finalCreator = isCustomCreator ? customCreator : creator;
+    if (finalCreator.trim() && trackNumber.trim()) {
       setShowRanking(true);
     }
   };
@@ -44,7 +50,9 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
 
   const handleRoundComplete = () => {
     if (selectedRankings.length === 3 && selectedRankings.every(p => p)) {
-      onRoundComplete(trackName, selectedRankings);
+      const finalCreator = isCustomCreator ? customCreator : creator;
+      const trackName = `${finalCreator} #${trackNumber}`;
+      onRoundComplete(finalCreator, trackNumber, trackName, selectedRankings);
     }
   };
 
@@ -68,20 +76,73 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
                 Runde {roundNumber}
               </CardTitle>
               <p className="text-muted-foreground">
-                Geben Sie den Namen der Strecke ein
+                Geben Sie den Ersteller und die Streckennummer ein
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="trackName">Streckenname</Label>
-                <Input
-                  id="trackName"
-                  value={trackName}
-                  onChange={(e) => setTrackName(e.target.value)}
-                  placeholder="z.B. Nürburgring, Hockenheim..."
-                  className="text-lg"
-                  onKeyPress={(e) => e.key === 'Enter' && handleTrackSubmit()}
-                />
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Ersteller</Label>
+                  {previousCreators.length > 0 && !isCustomCreator ? (
+                    <div className="space-y-2">
+                      <Select value={creator} onValueChange={setCreator}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ersteller auswählen..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border border-border z-50">
+                          {previousCreators.map((prevCreator) => (
+                            <SelectItem key={prevCreator} value={prevCreator}>
+                              {prevCreator}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCustomCreator(true)}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Neuen Ersteller hinzufügen
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value={customCreator}
+                        onChange={(e) => setCustomCreator(e.target.value)}
+                        placeholder="Ersteller eingeben..."
+                        className="text-lg"
+                      />
+                      {previousCreators.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setIsCustomCreator(false);
+                            setCustomCreator("");
+                          }}
+                          className="w-full"
+                        >
+                          Aus Liste auswählen
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="trackNumber">Streckennummer</Label>
+                  <Input
+                    id="trackNumber"
+                    value={trackNumber}
+                    onChange={(e) => setTrackNumber(e.target.value)}
+                    placeholder="z.B. 1, 2, 3..."
+                    className="text-lg"
+                    onKeyPress={(e) => e.key === 'Enter' && handleTrackSubmit()}
+                  />
+                </div>
               </div>
 
               <div className="bg-muted/50 p-4 rounded-lg">
@@ -98,7 +159,7 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
               <div className="flex justify-center">
                 <Button
                   onClick={handleTrackSubmit}
-                  disabled={!trackName.trim()}
+                  disabled={!(isCustomCreator ? customCreator.trim() : creator) || !trackNumber.trim()}
                   size="lg"
                 >
                   Weiter zur Platzierung
@@ -118,7 +179,7 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete }: RoundInput
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
               <Trophy className="h-6 w-6 text-primary" />
-              Runde {roundNumber} - {trackName}
+              Runde {roundNumber} - {(isCustomCreator ? customCreator : creator)} #{trackNumber}
             </CardTitle>
             <p className="text-muted-foreground">
               Wählen Sie die ersten 3 Plätze aus

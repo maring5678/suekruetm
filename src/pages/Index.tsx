@@ -27,6 +27,7 @@ const Index = () => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([]);
+  const [previousCreators, setPreviousCreators] = useState<string[]>([]);
 
   const handleStartTournament = (players: Player[]) => {
     setSelectedPlayers(players);
@@ -38,8 +39,13 @@ const Index = () => {
     setGameState("round-input");
   };
 
-  const handleRoundComplete = (trackName: string, rankings: Player[]) => {
+  const handleRoundComplete = (creator: string, trackNumber: string, trackName: string, rankings: Player[]) => {
     const pointsMap = { 1: 3, 2: 2, 3: 1 };
+    
+    // Ersteller zur Liste hinzufügen wenn noch nicht vorhanden
+    if (!previousCreators.includes(creator)) {
+      setPreviousCreators(prev => [...prev, creator]);
+    }
     
     setPlayerScores(prev => prev.map(playerScore => {
       const rankIndex = rankings.findIndex(p => p.id === playerScore.player.id);
@@ -78,6 +84,7 @@ const Index = () => {
     setSelectedPlayers([]);
     setCurrentRound(1);
     setPlayerScores([]);
+    setPreviousCreators([]);
   };
 
   switch (gameState) {
@@ -89,6 +96,7 @@ const Index = () => {
         <RoundInput
           roundNumber={currentRound}
           players={selectedPlayers}
+          previousCreators={previousCreators}
           onRoundComplete={handleRoundComplete}
         />
       );
