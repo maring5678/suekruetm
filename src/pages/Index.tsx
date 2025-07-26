@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { PlayerSelection } from "@/components/PlayerSelection";
+import { PlayerEdit } from "@/components/PlayerEdit";
 import { RoundInput } from "@/components/RoundInput";
 import { Leaderboard } from "@/components/Leaderboard";
 import { TournamentComplete } from "@/components/TournamentComplete";
@@ -23,7 +24,7 @@ interface PlayerScore {
   }[];
 }
 
-type GameState = "player-selection" | "round-input" | "leaderboard" | "tournament-complete" | "statistics";
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -198,7 +199,7 @@ const Index = () => {
   };
 
   const handleNextRound = () => {
-    setGameState("round-input");
+    setGameState("player-edit");
   };
 
   const handleEndTournament = async () => {
@@ -244,7 +245,7 @@ const Index = () => {
     setGameState("player-selection");
   };
 
-  const handlePlayersChange = (newPlayers: Player[]) => {
+  const handlePlayersConfirmed = (newPlayers: Player[]) => {
     setSelectedPlayers(newPlayers);
     
     // Aktualisiere playerScores: Neue Spieler hinzufügen, entfernte behalten ihre Punkte
@@ -268,11 +269,22 @@ const Index = () => {
       
       return newScores;
     });
+    
+    setGameState("round-input");
   };
 
   switch (gameState) {
     case "player-selection":
       return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
+    
+    case "player-edit":
+      return (
+        <PlayerEdit
+          currentRound={currentRound}
+          selectedPlayers={selectedPlayers}
+          onPlayersConfirmed={handlePlayersConfirmed}
+        />
+      );
     
     case "round-input":
       return (
@@ -288,10 +300,8 @@ const Index = () => {
         <Leaderboard
           playerScores={playerScores}
           currentRound={currentRound}
-          selectedPlayers={selectedPlayers}
           onNextRound={handleNextRound}
           onEndTournament={handleEndTournament}
-          onPlayersChange={handlePlayersChange}
         />
       );
     
