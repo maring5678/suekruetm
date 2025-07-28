@@ -62,17 +62,26 @@ export function Statistics({ onBack }: StatisticsProps) {
   };
 
   const loadPlayerStatistics = async () => {
+    console.log("Loading player statistics...");
+    
     // Hole alle Spieler
     const { data: players, error: playersError } = await supabase
       .from("players")
       .select("id, name");
 
-    if (playersError) throw playersError;
+    if (playersError) {
+      console.error("Error loading players:", playersError);
+      throw playersError;
+    }
+
+    console.log(`Found ${players?.length || 0} players`);
 
     const stats: PlayerStats[] = [];
 
     for (const player of players || []) {
-      // Hole historische Gesamtpunkte
+      console.log(`Processing player: ${player.name}`);
+      
+      // Hole historische Gesamtpunkte (aus den Excel-Importen)
       const { data: historicalData, error: historicalError } = await supabase
         .from("historical_player_totals")
         .select("total_points, tournaments_played")
@@ -84,46 +93,67 @@ export function Statistics({ onBack }: StatisticsProps) {
       if (!historicalError && historicalData) {
         historicalPoints = historicalData.total_points;
         historicalTournaments = historicalData.tournaments_played;
+        console.log(`${player.name} historical: ${historicalPoints} points, ${historicalTournaments} tournaments`);
       }
 
-      // Hole alle Rundenergebnisse für diesen Spieler (aus den importierten Turnieren)
-      const { data: results, error: resultsError } = await supabase
+      // Hole alle Rundenergebnisse für diesen Spieler (aus neuen manuellen Turnieren)
+      const { data: roundResults, error: resultsError } = await supabase
         .from("round_results")
-        .select("points, round_id, rounds!inner(tournament_id)")
+        .select(`
+          points, 
+          round_id,
+          rounds!inner(
+            tournament_id,
+            tournaments!inner(name, created_at)
+          )
+        `)
         .eq("player_id", player.id);
 
-      if (resultsError) throw resultsError;
+      if (resultsError) {
+        console.error(`Error loading round results for ${player.name}:`, resultsError);
+        throw resultsError;
+      }
 
-      // Berechne neue Punkte seit Import
-      const newPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
+      // Berechne Punkte aus manuellen Turnieren
+      const manualPoints = roundResults?.reduce((sum, r) => sum + r.points, 0) || 0;
       
-      // Zähle einzigartige Turniere aus den Round Results
-      const uniqueTournaments = new Set(results?.map(r => r.rounds.tournament_id) || []);
-      const newTournaments = uniqueTournaments.size;
+      // Zähle einzigartige manuelle Turniere
+      const uniqueManualTournaments = new Set(
+        roundResults?.map(r => r.rounds.tournament_id) || []
+      );
+      const manualTournaments = uniqueManualTournaments.size;
       
-      // Gesamtpunkte = historische Punkte + neue Punkte
-      const totalPoints = historicalPoints + newPoints;
-      const totalTournaments = historicalTournaments + newTournaments;
+      console.log(`${player.name} manual: ${manualPoints} points, ${manualTournaments} tournaments, ${roundResults?.length || 0} rounds`);
+      
+      // Gesamtstatistiken
+      const totalPoints = historicalPoints + manualPoints;
+      const totalTournaments = historicalTournaments + manualTournaments;
+      const totalRounds = (roundResults?.length || 0);
 
-      // Zeige alle Spieler an, auch die mit 0 Punkten
+      // Berechne Durchschnittspunkte pro Runde (nur für manuelle Turniere, da historische bereits aggregiert sind)
+      const averagePointsPerRound = totalRounds > 0 ? manualPoints / totalRounds : 0;
+
+      console.log(`${player.name} TOTAL: ${totalPoints} points, ${totalTournaments} tournaments, ${totalRounds} rounds`);
+
       stats.push({
         playerId: player.id,
         playerName: player.name,
         totalPoints,
         tournamentsPlayed: totalTournaments,
-        roundsPlayed: results?.length || 0,
-        firstPlaces: 0,
+        roundsPlayed: totalRounds,
+        firstPlaces: 0, // TODO: Berechnen basierend auf Rankings
         secondPlaces: 0,
         thirdPlaces: 0,
-        averagePointsPerRound: (results?.length || 0) > 0 ? newPoints / results!.length : 0,
-        averageRanking: 0,
-        winRate: 0,
-        podiumRate: 0,
+        averagePointsPerRound,
+        averageRanking: 0, // TODO: Implementieren
+        winRate: 0, // TODO: Implementieren
+        podiumRate: 0, // TODO: Implementieren
       });
     }
 
     // Sortiere nach Gesamtpunkten
     stats.sort((a, b) => b.totalPoints - a.totalPoints);
+    console.log("Final player stats:", stats);
     setPlayerStats(stats);
   };
 
