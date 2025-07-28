@@ -46,32 +46,43 @@ Deno.serve(async (req) => {
       try {
         // Prüfen ob es eine Excel-Datei ist oder CSV
         const isExcel = fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
+        console.log('Is Excel file:', isExcel, 'Filename:', fileName);
         
         if (isExcel) {
-          // Excel-Verarbeitung mit SheetJS
-          const { read, utils } = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs');
-          
-          const workbook = read(arrayBuffer, { type: 'array' });
-          console.log('Excel workbook loaded with sheets:', workbook.SheetNames);
-          
-          let totalImported = 0;
-          
-          // Alle Sheets durchgehen
-          for (const sheetName of workbook.SheetNames) {
-            console.log(`Processing sheet: ${sheetName}`);
-            const worksheet = workbook.Sheets[sheetName];
+          try {
+            console.log('Attempting to load SheetJS...');
             
-            // Sheet zu CSV konvertieren
-            const csvData = utils.sheet_to_csv(worksheet, { FS: ';' });
-            console.log(`Sheet ${sheetName} converted to CSV, length: ${csvData.length}`);
+            // Einfachere Methode: Verwende die im Deno Land verfügbare SheetJS Version
+            const XLSX = await import('https://deno.land/x/sheetjs@v0.18.3/xlsx.mjs');
+            console.log('SheetJS loaded successfully');
             
-            if (csvData.trim()) {
-              const imported = await processCSVData(csvData, sheetName);
-              totalImported += imported;
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            console.log('Excel workbook loaded with sheets:', workbook.SheetNames);
+            
+            let totalImported = 0;
+            
+            // Alle Sheets durchgehen
+            for (const sheetName of workbook.SheetNames) {
+              console.log(`Processing sheet: ${sheetName}`);
+              const worksheet = workbook.Sheets[sheetName];
+              
+              // Sheet zu JSON konvertieren (einfacher als CSV)
+              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+              console.log(`Sheet ${sheetName} has ${jsonData.length} rows`);
+              
+              if (jsonData.length > 1) { // Mindestens Header + 1 Datenzeile
+                const imported = await processSheetData(jsonData, sheetName);
+                totalImported += imported;
+              }
             }
+            
+            return totalImported;
+          } catch (xlsxError) {
+            console.error('Excel processing failed, trying as CSV:', xlsxError);
+            // Fallback zu CSV
+            const csvText = new TextDecoder().decode(arrayBuffer);
+            return await processCSVData(csvText, 'CSV-Fallback');
           }
-          
-          return totalImported;
         } else {
           // CSV-Verarbeitung
           const csvText = new TextDecoder().decode(arrayBuffer);
@@ -82,6 +93,77 @@ Deno.serve(async (req) => {
         console.error('Error processing file:', error);
         throw error;
       }
+    };
+
+    const processSheetData = async (data: any[][], source: string) => {
+      console.log(`Processing sheet data from ${source}...`);
+      
+      if (data.length < 2) {
+        console.log('Not enough data in sheet');
+        return 0;
+      }
+      
+      const headers = data[0].map((h: any) => String(h || '').trim());
+      console.log('Sheet headers:', headers);
+      
+      // Player-Daten sammeln
+      const playerTotals = new Map();
+      
+      // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        
+        if (!row || row.length === 0 || !row[0]) continue;
+        
+        const playerName = String(row[0]).trim();
+        
+        // Alle Runden für diesen Spieler durchgehen
+        for (let j = 1; j < row.length && j < headers.length; j++) {
+          const pointsValue = row[j];
+          
+          // Nur wenn eine Zahl eingegeben ist (Spieler hat teilgenommen)
+          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
+            const points = Number(pointsValue);
+            
+            // Zu den Gesamtpunkten hinzufügen
+            if (!playerTotals.has(playerName)) {
+              playerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
+            }
+            
+            const playerData = playerTotals.get(playerName);
+            playerData.total_points += points;
+            playerData.tournaments_played += 1;
+          }
+        }
+      }
+      
+      console.log(`Found ${playerTotals.size} players in sheet ${source}`);
+      
+      // Daten in die Datenbank einfügen
+      let importedCount = 0;
+      
+      for (const [playerName, data] of playerTotals) {
+        try {
+          const { error } = await supabase
+            .from('historical_player_totals')
+            .insert({
+              player_name: playerName,
+              total_points: data.total_points,
+              tournaments_played: data.tournaments_played
+            });
+          
+          if (error) {
+            console.error('Error inserting player data:', error);
+          } else {
+            importedCount++;
+            console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
+          }
+        } catch (error) {
+          console.error('Error processing player:', playerName, error);
+        }
+      }
+      
+      return importedCount;
     };
     
     const processCSVData = async (csvText: string, source: string) => {
