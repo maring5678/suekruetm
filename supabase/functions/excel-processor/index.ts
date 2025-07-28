@@ -190,13 +190,13 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Nur Spieler verarbeiten, die tatsächlich Punkte haben
-        if (!hasAnyPoints || totalPointsForDay === 0) {
-          console.log(`Skipping ${playerName} - no points for this tournament`);
+        // Spieler hat teilgenommen, wenn er mindestens eine Ziffer in der Zeile hat
+        if (!hasAnyPoints) {
+          console.log(`Skipping ${playerName} - no numbers found in row (no participation)`);
           continue;
         }
         
-        console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName}`);
+        console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName} (participated)`);
         
         // Spieler erstellen oder finden
         let { data: existingPlayer } = await supabase
@@ -341,13 +341,13 @@ Deno.serve(async (req) => {
             }
           }
           
-          // Nur Spieler verarbeiten, die tatsächlich Punkte haben
-          if (!hasAnyPoints || totalPointsForDay === 0) {
-            console.log(`Skipping ${playerName} - no points for this tournament`);
+          // Spieler hat teilgenommen, wenn er mindestens eine Ziffer in der Zeile hat
+          if (!hasAnyPoints) {
+            console.log(`Skipping ${playerName} - no numbers found in row (no participation)`);
             continue;
           }
           
-          console.log(`${playerName}: ${totalPointsForDay} total points for ${tournamentName}`);
+          console.log(`${playerName}: ${totalPointsForDay} total points for ${tournamentName} (participated)`);
           
           // Spieler erstellen oder finden
           let { data: existingPlayer } = await supabase
