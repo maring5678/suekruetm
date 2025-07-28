@@ -62,7 +62,9 @@ Deno.serve(async (req) => {
         
         // Erste Zeile ist der Header (Spielernamen in Spalte A, dann Runden)
         const headerLine = lines[0];
-        const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, ''));
+        // CSV aus Excel verwendet oft Semikolons statt Kommas
+        const separator = headerLine.includes(';') ? ';' : ',';
+        const headers = headerLine.split(separator).map(h => h.trim().replace(/"/g, ''));
         
         console.log('CSV headers:', headers);
         
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
         // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
           
           if (values.length === 0 || !values[0]) continue;
           
