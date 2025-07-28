@@ -61,7 +61,9 @@ Deno.serve(async (req) => {
             
             let totalImported = 0;
             
-            // Alle Sheets durchgehen
+            let totalTournaments = 0;
+            
+            // Alle Sheets durchgehen und als separate Turniere behandeln
             for (const sheetName of workbook.SheetNames) {
               console.log(`Processing sheet: ${sheetName}`);
               const worksheet = workbook.Sheets[sheetName];
@@ -71,23 +73,23 @@ Deno.serve(async (req) => {
               console.log(`Sheet ${sheetName} has ${jsonData.length} rows`);
               
               if (jsonData.length > 1) { // Mindestens Header + 1 Datenzeile
-                await processSheetData(jsonData, sheetName);
+                const processed = await processSheetAsTournament(jsonData, sheetName);
+                if (processed > 0) totalTournaments++;
               }
             }
             
-            // Nach Verarbeitung aller Sheets: Alle Daten speichern
-            return await saveAllPlayerData();
+            return totalTournaments;
           } catch (xlsxError) {
             console.error('Excel processing failed, trying as CSV:', xlsxError);
-            // Fallback zu CSV
+            // Fallback zu CSV - auch als einzelnes Turnier behandeln
             const csvText = new TextDecoder().decode(arrayBuffer);
-            return await processCSVData(csvText, 'CSV-Fallback');
+            return await processCSVAsTournament(csvText, 'CSV-Import');
           }
         } else {
-          // CSV-Verarbeitung
+          // CSV-Verarbeitung als einzelnes Turnier
           const csvText = new TextDecoder().decode(arrayBuffer);
           console.log('CSV content preview:', csvText.substring(0, 500));
-          return await processCSVData(csvText, 'CSV');
+          return await processCSVAsTournament(csvText, 'CSV-Import');
         }
       } catch (error) {
         console.error('Error processing file:', error);
@@ -95,11 +97,8 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Globale Player-Daten sammeln für alle Sheets
-    const globalPlayerTotals = new Map();
-
-    const processSheetData = async (data: any[][], source: string) => {
-      console.log(`Processing sheet data from ${source}...`);
+    const processSheetAsTournament = async (data: any[][], sheetName: string) => {
+      console.log(`Processing sheet "${sheetName}" as tournament...`);
       
       if (data.length < 2) {
         console.log('Not enough data in sheet');
@@ -109,82 +108,145 @@ Deno.serve(async (req) => {
       const headers = data[0].map((h: any) => String(h || '').trim());
       console.log('Sheet headers:', headers);
       
-      let playersFoundInSheet = 0;
+      // Turnier erstellen
+      const { data: tournament, error: tournamentError } = await supabase
+        .from('tournaments')
+        .insert({
+          name: sheetName,
+          completed_at: new Date().toISOString()
+        })
+        .select()
+        .single();
       
-      // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
+      if (tournamentError) {
+        console.error('Error creating tournament:', tournamentError);
+        return 0;
+      }
+      
+      console.log(`Created tournament: ${tournament.name} with ID: ${tournament.id}`);
+      
+      // Sammle alle Spieler für dieses Turnier
+      const tournamentPlayers = new Set();
+      let playersProcessed = 0;
+      
+      // Alle Zeilen durchgehen um Spieler zu identifizieren
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        
         if (!row || row.length === 0 || !row[0]) continue;
         
         const playerName = String(row[0]).trim();
-        let playerPointsInSheet = 0;
-        let playerTournamentsInSheet = 0;
+        if (playerName) {
+          tournamentPlayers.add(playerName);
+        }
+      }
+      
+      console.log(`Found ${tournamentPlayers.size} players in tournament ${sheetName}`);
+      
+      // Spieler erstellen/finden und zum Turnier hinzufügen
+      const playerMap = new Map(); // playerName -> playerId
+      
+      for (const playerName of tournamentPlayers) {
+        // Prüfen ob Spieler bereits existiert
+        let { data: existingPlayer } = await supabase
+          .from('players')
+          .select('id')
+          .eq('name', playerName)
+          .single();
         
-        // Alle Runden für diesen Spieler durchgehen
-        for (let j = 1; j < row.length && j < headers.length; j++) {
-          const pointsValue = row[j];
+        let playerId;
+        if (existingPlayer) {
+          playerId = existingPlayer.id;
+        } else {
+          // Spieler erstellen
+          const { data: newPlayer, error: playerError } = await supabase
+            .from('players')
+            .insert({ name: playerName })
+            .select()
+            .single();
           
-          // Nur wenn eine Zahl eingegeben ist (Spieler hat teilgenommen)
+          if (playerError) {
+            console.error('Error creating player:', playerError);
+            continue;
+          }
+          playerId = newPlayer.id;
+        }
+        
+        playerMap.set(playerName, playerId);
+        
+        // Spieler zum Turnier hinzufügen
+        await supabase
+          .from('tournament_players')
+          .insert({
+            tournament_id: tournament.id,
+            player_id: playerId
+          });
+      }
+      
+      // Runden erstellen (aus den Header-Spalten ab Index 1)
+      const rounds = [];
+      for (let j = 1; j < headers.length; j++) {
+        const roundName = headers[j];
+        if (roundName && roundName !== 'Summe' && roundName !== 'Total') {
+          const { data: round, error: roundError } = await supabase
+            .from('rounds')
+            .insert({
+              tournament_id: tournament.id,
+              round_number: j,
+              track_name: roundName,
+              track_number: `R${j}`,
+              creator: 'Excel Import'
+            })
+            .select()
+            .single();
+          
+          if (roundError) {
+            console.error('Error creating round:', roundError);
+          } else {
+            rounds.push({ index: j, roundId: round.id });
+          }
+        }
+      }
+      
+      console.log(`Created ${rounds.length} rounds for tournament ${sheetName}`);
+      
+      // Ergebnisse verarbeiten
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length === 0 || !row[0]) continue;
+        
+        const playerName = String(row[0]).trim();
+        const playerId = playerMap.get(playerName);
+        
+        if (!playerId) continue;
+        
+        // Für jede Runde die Punkte eintragen
+        for (const round of rounds) {
+          const pointsValue = row[round.index];
+          
           if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
             const points = Number(pointsValue);
-            playerPointsInSheet += points;
-            playerTournamentsInSheet += 1;
+            
+            await supabase
+              .from('round_results')
+              .insert({
+                round_id: round.roundId,
+                player_id: playerId,
+                points: points,
+                position: 1 // Platzierung können wir später berechnen
+              });
           }
         }
         
-        // Nur Spieler hinzufügen, die tatsächlich Punkte haben
-        if (playerTournamentsInSheet > 0) {
-          if (!globalPlayerTotals.has(playerName)) {
-            globalPlayerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
-          }
-          
-          const playerData = globalPlayerTotals.get(playerName);
-          playerData.total_points += playerPointsInSheet;
-          playerData.tournaments_played += playerTournamentsInSheet;
-          playersFoundInSheet++;
-          
-          console.log(`Sheet ${source}: ${playerName} = ${playerPointsInSheet} points, ${playerTournamentsInSheet} tournaments`);
-        }
+        playersProcessed++;
       }
       
-      console.log(`Found ${playersFoundInSheet} active players in sheet ${source}`);
-      return playersFoundInSheet;
-    };
-
-    const saveAllPlayerData = async () => {
-      console.log(`Saving data for ${globalPlayerTotals.size} players to database...`);
-      let savedCount = 0;
-      
-      for (const [playerName, data] of globalPlayerTotals) {
-        try {
-          // Direkt ersetzen statt addieren - die globalen Totals enthalten bereits alle Sheet-Daten
-          const { error } = await supabase
-            .from('historical_player_totals')
-            .upsert({
-              player_name: playerName,
-              total_points: data.total_points,
-              tournaments_played: data.tournaments_played
-            }, {
-              onConflict: 'player_name'
-            });
-          
-          if (error) {
-            console.error('Error upserting player data:', error);
-          } else {
-            savedCount++;
-            console.log(`Saved data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
-          }
-        } catch (error) {
-          console.error('Error processing player:', playerName, error);
-        }
-      }
-      
-      return savedCount;
+      console.log(`Processed ${playersProcessed} players for tournament ${sheetName}`);
+      return playersProcessed;
     };
     
-    const processCSVData = async (csvText: string, source: string) => {
-      console.log(`Processing ${source} data...`);
+    
+    const processCSVAsTournament = async (csvText: string, tournamentName: string) => {
+      console.log(`Processing CSV as tournament: ${tournamentName}`);
       
       try {
         // CSV in Zeilen aufteilen
@@ -201,10 +263,109 @@ Deno.serve(async (req) => {
         
         console.log('CSV headers:', headers);
         
-        // Player-Daten sammeln
-        const playerTotals = new Map();
+        // Turnier erstellen
+        const { data: tournament, error: tournamentError } = await supabase
+          .from('tournaments')
+          .insert({
+            name: tournamentName,
+            completed_at: new Date().toISOString()
+          })
+          .select()
+          .single();
         
-        // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
+        if (tournamentError) {
+          console.error('Error creating tournament:', tournamentError);
+          return 0;
+        }
+        
+        console.log(`Created tournament: ${tournament.name} with ID: ${tournament.id}`);
+        
+        // Sammle alle Spieler für dieses Turnier
+        const tournamentPlayers = new Set();
+        
+        // Alle Zeilen durchgehen um Spieler zu identifizieren
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
+          
+          if (values.length === 0 || !values[0]) continue;
+          const playerName = values[0];
+          if (playerName) {
+            tournamentPlayers.add(playerName);
+          }
+        }
+        
+        console.log(`Found ${tournamentPlayers.size} players in CSV tournament`);
+        
+        // Spieler erstellen/finden und zum Turnier hinzufügen
+        const playerMap = new Map(); // playerName -> playerId
+        
+        for (const playerName of tournamentPlayers) {
+          // Prüfen ob Spieler bereits existiert
+          let { data: existingPlayer } = await supabase
+            .from('players')
+            .select('id')
+            .eq('name', playerName)
+            .single();
+          
+          let playerId;
+          if (existingPlayer) {
+            playerId = existingPlayer.id;
+          } else {
+            // Spieler erstellen
+            const { data: newPlayer, error: playerError } = await supabase
+              .from('players')
+              .insert({ name: playerName })
+              .select()
+              .single();
+            
+            if (playerError) {
+              console.error('Error creating player:', playerError);
+              continue;
+            }
+            playerId = newPlayer.id;
+          }
+          
+          playerMap.set(playerName, playerId);
+          
+          // Spieler zum Turnier hinzufügen
+          await supabase
+            .from('tournament_players')
+            .insert({
+              tournament_id: tournament.id,
+              player_id: playerId
+            });
+        }
+        
+        // Runden erstellen (aus den Header-Spalten ab Index 1)
+        const rounds = [];
+        for (let j = 1; j < headers.length; j++) {
+          const roundName = headers[j];
+          if (roundName && roundName !== 'Summe' && roundName !== 'Total') {
+            const { data: round, error: roundError } = await supabase
+              .from('rounds')
+              .insert({
+                tournament_id: tournament.id,
+                round_number: j,
+                track_name: roundName,
+                track_number: `R${j}`,
+                creator: 'CSV Import'
+              })
+              .select()
+              .single();
+            
+            if (roundError) {
+              console.error('Error creating round:', roundError);
+            } else {
+              rounds.push({ index: j, roundId: round.id });
+            }
+          }
+        }
+        
+        console.log(`Created ${rounds.length} rounds for CSV tournament`);
+        
+        // Ergebnisse verarbeiten
+        let playersProcessed = 0;
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
@@ -212,57 +373,33 @@ Deno.serve(async (req) => {
           if (values.length === 0 || !values[0]) continue;
           
           const playerName = values[0];
+          const playerId = playerMap.get(playerName);
           
-          // Alle Runden für diesen Spieler durchgehen
-          for (let j = 1; j < values.length && j < headers.length; j++) {
-            const pointsStr = values[j];
+          if (!playerId) continue;
+          
+          // Für jede Runde die Punkte eintragen
+          for (const round of rounds) {
+            const pointsStr = values[round.index];
             
-            // Nur wenn eine Zahl eingegeben ist (Spieler hat teilgenommen)
             if (pointsStr && pointsStr !== '' && !isNaN(Number(pointsStr))) {
               const points = Number(pointsStr);
               
-              // Zu den Gesamtpunkten hinzufügen
-              if (!playerTotals.has(playerName)) {
-                playerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
-              }
-              
-              const playerData = playerTotals.get(playerName);
-              playerData.total_points += points;
-              playerData.tournaments_played += 1;
+              await supabase
+                .from('round_results')
+                .insert({
+                  round_id: round.roundId,
+                  player_id: playerId,
+                  points: points,
+                  position: 1 // Platzierung können wir später berechnen
+                });
             }
           }
+          
+          playersProcessed++;
         }
         
-        console.log(`Found ${playerTotals.size} players in CSV`);
-        
-        // Für CSV: Daten direkt in die Datenbank einfügen (ersetzen, nicht addieren)
-        let importedCount = 0;
-        
-        for (const [playerName, data] of playerTotals) {
-          try {
-            // Für CSV: Direkt ersetzen ohne zu addieren
-            const { error } = await supabase
-              .from('historical_player_totals')
-              .upsert({
-                player_name: playerName,
-                total_points: data.total_points,
-                tournaments_played: data.tournaments_played
-              }, {
-                onConflict: 'player_name'
-              });
-            
-            if (error) {
-              console.error('Error upserting player data:', error);
-            } else {
-              importedCount++;
-              console.log(`CSV data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
-            }
-          } catch (error) {
-            console.error('Error processing player:', playerName, error);
-          }
-        }
-        
-        return importedCount;
+        console.log(`Processed ${playersProcessed} players for CSV tournament`);
+        return playersProcessed;
         
       } catch (error) {
         console.error('Error processing CSV:', error);
@@ -281,7 +418,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'CSV-Datei wurde erfolgreich verarbeitet',
+        message: 'Datei wurde erfolgreich als Turniere verarbeitet',
         importedRecords: importedCount,
         status: 'completed'
       }),
