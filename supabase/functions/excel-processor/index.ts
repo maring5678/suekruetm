@@ -174,6 +174,11 @@ Deno.serve(async (req) => {
         
         const playerName = String(row[0]).trim();
         
+        // Debug-Ausgabe für Felix
+        if (playerName.toLowerCase().includes('felix')) {
+          console.log(`DEBUG: Found Felix row in ${sheetName}:`, row);
+        }
+        
         // Überspringe ungültige Spielernamen (Zeilennummern, leere Namen, etc.)
         if (!playerName || 
             playerName.match(/^\d+\.?$/) || // Zeilennummern wie "1", "1.", "2"
