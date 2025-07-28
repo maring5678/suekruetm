@@ -207,14 +207,17 @@ Deno.serve(async (req) => {
             console.log(`DEBUG ${sheetName}: ${playerName} cell[${j}] = "${pointsValue}" (type: ${typeof pointsValue})`);
           }
           
-          // Ein Feld ist ausgefüllt wenn es nicht null, undefined oder leer ist
-          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '') {
+          // Robuste Prüfung: Ein Feld ist ausgefüllt wenn es einen Wert hat
+          // Konvertiere zu String und prüfe ob es nach trim() nicht leer ist
+          const valueAsString = String(pointsValue || '').trim();
+          
+          if (valueAsString !== '' && valueAsString !== 'null' && valueAsString !== 'undefined') {
             hasAnyFilledField = true;
             
-            // Prüfe ob es eine gültige Zahl ist
-            if (!isNaN(Number(pointsValue))) {
-              const points = Number(pointsValue);
-              totalPointsForDay += points;
+            // Versuche Wert zu einer Zahl zu konvertieren
+            const numericValue = parseFloat(valueAsString);
+            if (!isNaN(numericValue)) {
+              totalPointsForDay += numericValue;
             }
           }
         }
@@ -367,14 +370,16 @@ Deno.serve(async (req) => {
           for (let j = 1; j < values.length && j < headers.length; j++) {
             const pointsStr = values[j];
             
-            // Ein Feld ist ausgefüllt wenn es nicht null, undefined oder leer ist
-            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '') {
+            // Robuste Prüfung: Ein Feld ist ausgefüllt wenn es einen Wert hat
+            const valueAsString = String(pointsStr || '').trim();
+            
+            if (valueAsString !== '' && valueAsString !== 'null' && valueAsString !== 'undefined') {
               hasAnyFilledField = true;
               
-              // Prüfe ob es eine gültige Zahl ist
-              if (!isNaN(Number(pointsStr))) {
-                const points = Number(pointsStr);
-                totalPointsForDay += points;
+              // Versuche Wert zu einer Zahl zu konvertieren
+              const numericValue = parseFloat(valueAsString);
+              if (!isNaN(numericValue)) {
+                totalPointsForDay += numericValue;
               }
             }
           }
