@@ -153,7 +153,16 @@ Deno.serve(async (req) => {
         if (!row || row.length === 0 || !row[0]) continue;
         
         const playerName = String(row[0]).trim();
-        if (!playerName) continue;
+        
+        // Überspringe ungültige Spielernamen (Zeilennummern, leere Namen, etc.)
+        if (!playerName || 
+            playerName.match(/^\d+\.?$/) || // Zeilennummern wie "1", "1.", "2"
+            playerName.toLowerCase() === 'name' || // Header-Zeile
+            playerName.toLowerCase() === 'spieler' ||
+            playerName.length < 2) {
+          console.log(`Skipping invalid player name: "${playerName}"`);
+          continue;
+        }
         
         // Alle Punkte für diesen Spieler in dieser Zeile addieren
         let totalPointsForDay = 0;
@@ -295,7 +304,16 @@ Deno.serve(async (req) => {
           if (values.length === 0 || !values[0]) continue;
           
           const playerName = values[0];
-          if (!playerName) continue;
+          
+          // Überspringe ungültige Spielernamen (Zeilennummern, leere Namen, etc.)
+          if (!playerName || 
+              playerName.match(/^\d+\.?$/) || // Zeilennummern wie "1", "1.", "2"
+              playerName.toLowerCase() === 'name' || // Header-Zeile
+              playerName.toLowerCase() === 'spieler' ||
+              playerName.length < 2) {
+            console.log(`Skipping invalid player name: "${playerName}"`);
+            continue;
+          }
           
           // Alle Punkte für diesen Spieler in dieser Zeile addieren
           let totalPointsForDay = 0;
