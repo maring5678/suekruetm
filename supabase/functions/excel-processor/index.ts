@@ -196,10 +196,7 @@ Deno.serve(async (req) => {
         
         // NEUE LOGIK: Wenn Spieler in der Zeile steht, hat er teilgenommen
         // (Es ist besser zu viele als zu wenige zu erfassen)
-        if (row.length <= 1) {
-          console.log(`Skipping ${playerName} - empty row (no data)`);
-          continue;
-        }
+        // Ein Spieler hat teilgenommen wenn sein Name in der Zeile steht, unabhängig von den Punkten
         
         console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName} (participated)`);
         
