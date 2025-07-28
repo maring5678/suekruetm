@@ -186,19 +186,29 @@ Deno.serve(async (req) => {
         
         // Alle Punkte für diesen Spieler in dieser Zeile addieren
         let totalPointsForDay = 0;
+        let hasAnyFilledField = false;
         
         // Durchgehe alle Spalten ab Index 1 (nach Spielername)
         for (let j = 1; j < row.length && j < headers.length; j++) {
           const pointsValue = row[j];
           
-          // Prüfe ob es eine gültige Zahl ist
-          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
-            const points = Number(pointsValue);
-            totalPointsForDay += points;
+          // Ein Feld ist ausgefüllt wenn es nicht null, undefined oder leer ist
+          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '') {
+            hasAnyFilledField = true;
+            
+            // Prüfe ob es eine gültige Zahl ist
+            if (!isNaN(Number(pointsValue))) {
+              const points = Number(pointsValue);
+              totalPointsForDay += points;
+            }
           }
         }
         
-        // Jeder Spieler mit einer Zeile hat teilgenommen (auch wenn alle Felder leer sind)
+        // Nur verarbeiten wenn mindestens ein Feld ausgefüllt ist
+        if (!hasAnyFilledField) {
+          console.log(`Skipping ${playerName} - no filled fields (no participation)`);
+          continue;
+        }
         
         console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName} (participated)`);
         
@@ -331,19 +341,29 @@ Deno.serve(async (req) => {
           
           // Alle Punkte für diesen Spieler in dieser Zeile addieren
           let totalPointsForDay = 0;
+          let hasAnyFilledField = false;
           
           // Durchgehe alle Spalten ab Index 1 (nach Spielername)
           for (let j = 1; j < values.length && j < headers.length; j++) {
             const pointsStr = values[j];
             
-            // Prüfe ob es eine gültige Zahl ist
-            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '' && !isNaN(Number(pointsStr))) {
-              const points = Number(pointsStr);
-              totalPointsForDay += points;
+            // Ein Feld ist ausgefüllt wenn es nicht null, undefined oder leer ist
+            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '') {
+              hasAnyFilledField = true;
+              
+              // Prüfe ob es eine gültige Zahl ist
+              if (!isNaN(Number(pointsStr))) {
+                const points = Number(pointsStr);
+                totalPointsForDay += points;
+              }
             }
           }
           
-          // Jeder Spieler mit einer Zeile hat teilgenommen (auch wenn alle Felder leer sind)
+          // Nur verarbeiten wenn mindestens ein Feld ausgefüllt ist
+          if (!hasAnyFilledField) {
+            console.log(`Skipping ${playerName} - no filled fields (no participation)`);
+            continue;
+          }
           
           console.log(`${playerName}: ${totalPointsForDay} total points for ${tournamentName} (participated)`);
           
