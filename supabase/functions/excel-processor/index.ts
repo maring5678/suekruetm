@@ -146,14 +146,16 @@ Deno.serve(async (req) => {
         try {
           const { error } = await supabase
             .from('historical_player_totals')
-            .insert({
+            .upsert({
               player_name: playerName,
               total_points: data.total_points,
               tournaments_played: data.tournaments_played
+            }, {
+              onConflict: 'player_name'
             });
           
           if (error) {
-            console.error('Error inserting player data:', error);
+            console.error('Error upserting player data:', error);
           } else {
             importedCount++;
             console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
@@ -222,24 +224,26 @@ Deno.serve(async (req) => {
         let importedCount = 0;
         
         for (const [playerName, data] of playerTotals) {
-          try {
-            const { error } = await supabase
-              .from('historical_player_totals')
-              .insert({
-                player_name: playerName,
-                total_points: data.total_points,
-                tournaments_played: data.tournaments_played
-              });
-            
-            if (error) {
-              console.error('Error inserting player data:', error);
-            } else {
-              importedCount++;
-              console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
-            }
-          } catch (error) {
-            console.error('Error processing player:', playerName, error);
+        try {
+          const { error } = await supabase
+            .from('historical_player_totals')
+            .upsert({
+              player_name: playerName,
+              total_points: data.total_points,
+              tournaments_played: data.tournaments_played
+            }, {
+              onConflict: 'player_name'
+            });
+          
+          if (error) {
+            console.error('Error upserting player data:', error);
+          } else {
+            importedCount++;
+            console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
           }
+        } catch (error) {
+          console.error('Error processing player:', playerName, error);
+        }
         }
         
         return importedCount;
