@@ -24,10 +24,10 @@ export const ExcelUpload = ({ onImportComplete, onBack }: ExcelUploadProps) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
       toast({
         title: "Ungültiger Dateityp",
-        description: "Bitte wählen Sie eine Excel-Datei (.xlsx oder .xls)",
+        description: "Bitte wählen Sie eine Excel-Datei (.xlsx, .xls) oder CSV-Datei (.csv)",
         variant: "destructive",
       });
       return;
@@ -99,18 +99,18 @@ export const ExcelUpload = ({ onImportComplete, onBack }: ExcelUploadProps) => {
           <div className="flex justify-center mb-4">
             <FileSpreadsheet className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle>Excel-Datei importieren</CardTitle>
+          <CardTitle>Datei importieren</CardTitle>
           <CardDescription>
-            Laden Sie Ihre Excel-Datei hoch, um die Turnierdaten zu importieren
+            Laden Sie Ihre Excel- oder CSV-Datei hoch, um die Turnierdaten zu importieren
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="excel-file">Excel-Datei auswählen</Label>
+            <Label htmlFor="excel-file">Excel- oder CSV-Datei auswählen</Label>
             <Input
               id="excel-file"
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               onChange={handleFileSelect}
               disabled={isUploading}
             />
