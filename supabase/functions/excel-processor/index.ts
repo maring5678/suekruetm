@@ -47,38 +47,89 @@ Deno.serve(async (req) => {
     // Für jetzt nehmen wir an, dass die Datei erfolgreich verarbeitet wurde
     
     const processExcelData = async () => {
-      // Simuliere Excel-Verarbeitung
-      console.log('Starting Excel data processing...');
+      console.log('Starting CSV data processing...');
       
-      // Hier würde das echte Excel-Parsing stattfinden
-      // und die Daten in die entsprechenden Tabellen eingefügt werden
-      
-      // Beispiel-Import (später durch echte Daten ersetzen)
-      const exampleData = [
-        { player_name: 'Test Player 1', total_points: 100, tournaments_played: 5 },
-        { player_name: 'Test Player 2', total_points: 150, tournaments_played: 7 },
-      ];
-
-      let importedCount = 0;
-      
-      for (const playerData of exampleData) {
-        try {
-          const { error } = await supabase
-            .from('historical_player_totals')
-            .insert(playerData);
-          
-          if (error) {
-            console.error('Error inserting player data:', error);
-          } else {
-            importedCount++;
-            console.log(`Imported data for ${playerData.player_name}`);
-          }
-        } catch (error) {
-          console.error('Error processing player:', playerData.player_name, error);
+      try {
+        // CSV-Daten als Text lesen
+        const csvText = new TextDecoder().decode(arrayBuffer);
+        console.log('CSV content preview:', csvText.substring(0, 500));
+        
+        // CSV in Zeilen aufteilen
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length === 0) {
+          throw new Error('CSV-Datei ist leer');
         }
+        
+        // Erste Zeile ist der Header (Spielernamen in Spalte A, dann Runden)
+        const headerLine = lines[0];
+        const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        console.log('CSV headers:', headers);
+        
+        // Player-Daten sammeln
+        const playerTotals = new Map();
+        
+        // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          
+          if (values.length === 0 || !values[0]) continue;
+          
+          const playerName = values[0];
+          
+          // Alle Runden für diesen Spieler durchgehen
+          for (let j = 1; j < values.length && j < headers.length; j++) {
+            const pointsStr = values[j];
+            
+            // Nur wenn eine Zahl eingegeben ist (Spieler hat teilgenommen)
+            if (pointsStr && pointsStr !== '' && !isNaN(Number(pointsStr))) {
+              const points = Number(pointsStr);
+              
+              // Zu den Gesamtpunkten hinzufügen
+              if (!playerTotals.has(playerName)) {
+                playerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
+              }
+              
+              const playerData = playerTotals.get(playerName);
+              playerData.total_points += points;
+              playerData.tournaments_played += 1;
+            }
+          }
+        }
+        
+        console.log(`Found ${playerTotals.size} players in CSV`);
+        
+        // Daten in die Datenbank einfügen
+        let importedCount = 0;
+        
+        for (const [playerName, data] of playerTotals) {
+          try {
+            const { error } = await supabase
+              .from('historical_player_totals')
+              .insert({
+                player_name: playerName,
+                total_points: data.total_points,
+                tournaments_played: data.tournaments_played
+              });
+            
+            if (error) {
+              console.error('Error inserting player data:', error);
+            } else {
+              importedCount++;
+              console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
+            }
+          } catch (error) {
+            console.error('Error processing player:', playerName, error);
+          }
+        }
+        
+        return importedCount;
+        
+      } catch (error) {
+        console.error('Error processing CSV:', error);
+        throw error;
       }
-
-      return importedCount;
     };
 
     // Starte Background Task
