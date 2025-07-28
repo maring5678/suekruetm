@@ -125,8 +125,28 @@ Deno.serve(async (req) => {
         return 0;
       }
       
-      const headers = data[0].map((h: any) => String(h || '').trim());
-      console.log('Sheet headers:', headers);
+      // Intelligente Header-Erkennung: Suche nach Zeile mit "Runde" oder ähnlichem
+      let headerRowIndex = 0;
+      let dataStartIndex = 1;
+      
+      // Prüfe erste 3 Zeilen nach brauchbaren Headern
+      for (let i = 0; i < Math.min(3, data.length); i++) {
+        const row = data[i];
+        if (row && row.length > 1) {
+          const rowText = row.map((cell: any) => String(cell || '').toLowerCase()).join(' ');
+          if (rowText.includes('runde') || rowText.includes('round') || 
+              (row[1] && String(row[1]).toLowerCase().includes('runde')) ||
+              (row[2] && String(row[2]).toLowerCase().includes('runde'))) {
+            headerRowIndex = i;
+            dataStartIndex = i + 1;
+            console.log(`Found header row at index ${i}:`, row);
+            break;
+          }
+        }
+      }
+      
+      const headers = data[headerRowIndex].map((h: any) => String(h || '').trim());
+      console.log(`Sheet headers (row ${headerRowIndex}):`, headers);
       
       // Turnier erstellen
       const { data: tournament, error: tournamentError } = await supabase
@@ -167,8 +187,8 @@ Deno.serve(async (req) => {
       
       let playersProcessed = 0;
       
-      // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
-      for (let i = 1; i < data.length; i++) {
+      // Alle Zeilen durchgehen (ab der ermittelten Datenstart-Zeile)
+      for (let i = dataStartIndex; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0 || !row[0]) continue;
         
