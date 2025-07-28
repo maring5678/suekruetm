@@ -378,7 +378,7 @@ export function Statistics({ onBack }: StatisticsProps) {
                                 {player.playerName}
                               </h3>
                               <p className="text-sm text-muted-foreground">
-                                {player.roundsPlayed} Runden gespielt
+                                {player.tournamentsPlayed} Turniere gespielt
                               </p>
                             </div>
                           </div>
