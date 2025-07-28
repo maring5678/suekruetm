@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Starte Background Task
-    EdgeRuntime.waitUntil(processExcelData());
+    // Starte Excel-Verarbeitung
+    const importedCount = await processExcelData();
 
     // Datei nach Verarbeitung löschen (optional)
     await supabase.storage
@@ -143,9 +143,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Excel-Datei wird verarbeitet...',
-        importedRecords: 2, // Beispielwert
-        status: 'processing'
+        message: 'CSV-Datei wurde erfolgreich verarbeitet',
+        importedRecords: importedCount,
+        status: 'completed'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
