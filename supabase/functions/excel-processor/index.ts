@@ -125,28 +125,61 @@ Deno.serve(async (req) => {
       
       console.log(`Created tournament: ${tournament.name} with ID: ${tournament.id}`);
       
-      // Sammle alle Spieler für dieses Turnier
-      const tournamentPlayers = new Set();
+      // Eine Runde für das gesamte Turnier erstellen (da es ein Tagesergebnis ist)
+      const { data: round, error: roundError } = await supabase
+        .from('rounds')
+        .insert({
+          tournament_id: tournament.id,
+          round_number: 1,
+          track_name: `Turnier ${sheetName}`,
+          track_number: 'T1',
+          creator: 'Excel Import'
+        })
+        .select()
+        .single();
+      
+      if (roundError) {
+        console.error('Error creating round:', roundError);
+        return 0;
+      }
+      
+      console.log(`Created round for tournament ${sheetName}`);
+      
       let playersProcessed = 0;
       
-      // Alle Zeilen durchgehen um Spieler zu identifizieren
+      // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
       for (let i = 1; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0 || !row[0]) continue;
         
         const playerName = String(row[0]).trim();
-        if (playerName) {
-          tournamentPlayers.add(playerName);
+        if (!playerName) continue;
+        
+        // Alle Punkte für diesen Spieler in dieser Zeile addieren
+        let totalPointsForDay = 0;
+        let hasAnyPoints = false;
+        
+        // Durchgehe alle Spalten ab Index 1 (nach Spielername)
+        for (let j = 1; j < row.length && j < headers.length; j++) {
+          const pointsValue = row[j];
+          
+          // Prüfe ob es eine gültige Zahl ist
+          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
+            const points = Number(pointsValue);
+            totalPointsForDay += points;
+            hasAnyPoints = true;
+          }
         }
-      }
-      
-      console.log(`Found ${tournamentPlayers.size} players in tournament ${sheetName}`);
-      
-      // Spieler erstellen/finden und zum Turnier hinzufügen
-      const playerMap = new Map(); // playerName -> playerId
-      
-      for (const playerName of tournamentPlayers) {
-        // Prüfen ob Spieler bereits existiert
+        
+        // Nur Spieler verarbeiten, die tatsächlich Punkte haben
+        if (!hasAnyPoints || totalPointsForDay === 0) {
+          console.log(`Skipping ${playerName} - no points for this tournament`);
+          continue;
+        }
+        
+        console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName}`);
+        
+        // Spieler erstellen oder finden
         let { data: existingPlayer } = await supabase
           .from('players')
           .select('id')
@@ -171,8 +204,6 @@ Deno.serve(async (req) => {
           playerId = newPlayer.id;
         }
         
-        playerMap.set(playerName, playerId);
-        
         // Spieler zum Turnier hinzufügen
         await supabase
           .from('tournament_players')
@@ -180,62 +211,16 @@ Deno.serve(async (req) => {
             tournament_id: tournament.id,
             player_id: playerId
           });
-      }
-      
-      // Runden erstellen (aus den Header-Spalten ab Index 1)
-      const rounds = [];
-      for (let j = 1; j < headers.length; j++) {
-        const roundName = headers[j];
-        if (roundName && roundName !== 'Summe' && roundName !== 'Total') {
-          const { data: round, error: roundError } = await supabase
-            .from('rounds')
-            .insert({
-              tournament_id: tournament.id,
-              round_number: j,
-              track_name: roundName,
-              track_number: `R${j}`,
-              creator: 'Excel Import'
-            })
-            .select()
-            .single();
-          
-          if (roundError) {
-            console.error('Error creating round:', roundError);
-          } else {
-            rounds.push({ index: j, roundId: round.id });
-          }
-        }
-      }
-      
-      console.log(`Created ${rounds.length} rounds for tournament ${sheetName}`);
-      
-      // Ergebnisse verarbeiten
-      for (let i = 1; i < data.length; i++) {
-        const row = data[i];
-        if (!row || row.length === 0 || !row[0]) continue;
         
-        const playerName = String(row[0]).trim();
-        const playerId = playerMap.get(playerName);
-        
-        if (!playerId) continue;
-        
-        // Für jede Runde die Punkte eintragen
-        for (const round of rounds) {
-          const pointsValue = row[round.index];
-          
-          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
-            const points = Number(pointsValue);
-            
-            await supabase
-              .from('round_results')
-              .insert({
-                round_id: round.roundId,
-                player_id: playerId,
-                points: points,
-                position: 1 // Platzierung können wir später berechnen
-              });
-          }
-        }
+        // Ein Round Result mit der Gesamtpunktzahl für diesen Tag erstellen
+        await supabase
+          .from('round_results')
+          .insert({
+            round_id: round.id,
+            player_id: playerId,
+            points: totalPointsForDay,
+            position: 1 // Platzierung wird später berechnet
+          });
         
         playersProcessed++;
       }
@@ -280,28 +265,63 @@ Deno.serve(async (req) => {
         
         console.log(`Created tournament: ${tournament.name} with ID: ${tournament.id}`);
         
-        // Sammle alle Spieler für dieses Turnier
-        const tournamentPlayers = new Set();
+        // Eine Runde für das gesamte Turnier erstellen (da es ein Tagesergebnis ist)
+        const { data: round, error: roundError } = await supabase
+          .from('rounds')
+          .insert({
+            tournament_id: tournament.id,
+            round_number: 1,
+            track_name: `Turnier ${tournamentName}`,
+            track_number: 'T1',
+            creator: 'CSV Import'
+          })
+          .select()
+          .single();
         
-        // Alle Zeilen durchgehen um Spieler zu identifizieren
+        if (roundError) {
+          console.error('Error creating round:', roundError);
+          return 0;
+        }
+        
+        console.log(`Created round for CSV tournament ${tournamentName}`);
+        
+        let playersProcessed = 0;
+        
+        // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
           
           if (values.length === 0 || !values[0]) continue;
+          
           const playerName = values[0];
-          if (playerName) {
-            tournamentPlayers.add(playerName);
+          if (!playerName) continue;
+          
+          // Alle Punkte für diesen Spieler in dieser Zeile addieren
+          let totalPointsForDay = 0;
+          let hasAnyPoints = false;
+          
+          // Durchgehe alle Spalten ab Index 1 (nach Spielername)
+          for (let j = 1; j < values.length && j < headers.length; j++) {
+            const pointsStr = values[j];
+            
+            // Prüfe ob es eine gültige Zahl ist
+            if (pointsStr && pointsStr !== '' && !isNaN(Number(pointsStr))) {
+              const points = Number(pointsStr);
+              totalPointsForDay += points;
+              hasAnyPoints = true;
+            }
           }
-        }
-        
-        console.log(`Found ${tournamentPlayers.size} players in CSV tournament`);
-        
-        // Spieler erstellen/finden und zum Turnier hinzufügen
-        const playerMap = new Map(); // playerName -> playerId
-        
-        for (const playerName of tournamentPlayers) {
-          // Prüfen ob Spieler bereits existiert
+          
+          // Nur Spieler verarbeiten, die tatsächlich Punkte haben
+          if (!hasAnyPoints || totalPointsForDay === 0) {
+            console.log(`Skipping ${playerName} - no points for this tournament`);
+            continue;
+          }
+          
+          console.log(`${playerName}: ${totalPointsForDay} total points for ${tournamentName}`);
+          
+          // Spieler erstellen oder finden
           let { data: existingPlayer } = await supabase
             .from('players')
             .select('id')
@@ -326,8 +346,6 @@ Deno.serve(async (req) => {
             playerId = newPlayer.id;
           }
           
-          playerMap.set(playerName, playerId);
-          
           // Spieler zum Turnier hinzufügen
           await supabase
             .from('tournament_players')
@@ -335,70 +353,21 @@ Deno.serve(async (req) => {
               tournament_id: tournament.id,
               player_id: playerId
             });
-        }
-        
-        // Runden erstellen (aus den Header-Spalten ab Index 1)
-        const rounds = [];
-        for (let j = 1; j < headers.length; j++) {
-          const roundName = headers[j];
-          if (roundName && roundName !== 'Summe' && roundName !== 'Total') {
-            const { data: round, error: roundError } = await supabase
-              .from('rounds')
-              .insert({
-                tournament_id: tournament.id,
-                round_number: j,
-                track_name: roundName,
-                track_number: `R${j}`,
-                creator: 'CSV Import'
-              })
-              .select()
-              .single();
-            
-            if (roundError) {
-              console.error('Error creating round:', roundError);
-            } else {
-              rounds.push({ index: j, roundId: round.id });
-            }
-          }
-        }
-        
-        console.log(`Created ${rounds.length} rounds for CSV tournament`);
-        
-        // Ergebnisse verarbeiten
-        let playersProcessed = 0;
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i];
-          const values = line.split(separator).map(v => v.trim().replace(/"/g, ''));
           
-          if (values.length === 0 || !values[0]) continue;
-          
-          const playerName = values[0];
-          const playerId = playerMap.get(playerName);
-          
-          if (!playerId) continue;
-          
-          // Für jede Runde die Punkte eintragen
-          for (const round of rounds) {
-            const pointsStr = values[round.index];
-            
-            if (pointsStr && pointsStr !== '' && !isNaN(Number(pointsStr))) {
-              const points = Number(pointsStr);
-              
-              await supabase
-                .from('round_results')
-                .insert({
-                  round_id: round.roundId,
-                  player_id: playerId,
-                  points: points,
-                  position: 1 // Platzierung können wir später berechnen
-                });
-            }
-          }
+          // Ein Round Result mit der Gesamtpunktzahl für diesen Tag erstellen
+          await supabase
+            .from('round_results')
+            .insert({
+              round_id: round.id,
+              player_id: playerId,
+              points: totalPointsForDay,
+              position: 1 // Platzierung wird später berechnet
+            });
           
           playersProcessed++;
         }
         
-        console.log(`Processed ${playersProcessed} players for CSV tournament`);
+        console.log(`Processed ${playersProcessed} players for CSV tournament ${tournamentName}`);
         return playersProcessed;
         
       } catch (error) {
