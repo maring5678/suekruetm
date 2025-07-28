@@ -145,6 +145,7 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
     background: var(--gradient-background);
     min-height: 100vh;
+    color: hsl(var(--foreground));
   }
 
   html {
@@ -163,6 +164,7 @@ All colors MUST be HSL.
     background: var(--gradient-card);
     box-shadow: var(--shadow-card);
     border: 1px solid hsl(var(--border) / 0.5);
+    color: hsl(var(--foreground));
   }
 
   .button-glow {
