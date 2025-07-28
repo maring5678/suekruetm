@@ -176,23 +176,28 @@ Deno.serve(async (req) => {
         
         // Alle Punkte für diesen Spieler in dieser Zeile addieren
         let totalPointsForDay = 0;
-        let hasAnyPoints = false;
+        let hasAnyContent = false;
         
         // Durchgehe alle Spalten ab Index 1 (nach Spielername)
         for (let j = 1; j < row.length && j < headers.length; j++) {
           const pointsValue = row[j];
           
-          // Prüfe ob es eine gültige Zahl ist
-          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
-            const points = Number(pointsValue);
-            totalPointsForDay += points;
-            hasAnyPoints = true;
+          // Jeder nicht-leere Wert (auch 0) bedeutet Teilnahme
+          if (pointsValue !== null && pointsValue !== undefined) {
+            hasAnyContent = true;
+            
+            // Prüfe ob es eine gültige Zahl ist
+            if (!isNaN(Number(pointsValue))) {
+              const points = Number(pointsValue);
+              totalPointsForDay += points;
+            }
           }
         }
         
-        // Spieler hat teilgenommen, wenn er mindestens eine Ziffer in der Zeile hat
-        if (!hasAnyPoints) {
-          console.log(`Skipping ${playerName} - no numbers found in row (no participation)`);
+        // NEUE LOGIK: Wenn Spieler in der Zeile steht, hat er teilgenommen
+        // (Es ist besser zu viele als zu wenige zu erfassen)
+        if (row.length <= 1) {
+          console.log(`Skipping ${playerName} - empty row (no data)`);
           continue;
         }
         
@@ -333,11 +338,15 @@ Deno.serve(async (req) => {
           for (let j = 1; j < values.length && j < headers.length; j++) {
             const pointsStr = values[j];
             
-            // Prüfe ob es eine gültige Zahl ist
-            if (pointsStr && pointsStr !== '' && !isNaN(Number(pointsStr))) {
-              const points = Number(pointsStr);
-              totalPointsForDay += points;
-              hasAnyPoints = true;
+            // Teilnahme = irgendein Wert in der Zelle (auch 0, auch leere Strings die zu 0 werden)
+            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '') {
+              hasAnyPoints = true; // Spieler war anwesend/hat teilgenommen
+              
+              // Prüfe ob es eine gültige Zahl ist
+              if (!isNaN(Number(pointsStr))) {
+                const points = Number(pointsStr);
+                totalPointsForDay += points;
+              }
             }
           }
           
