@@ -75,19 +75,21 @@ export function Statistics({ onBack }: StatisticsProps) {
       // Hole historische Gesamtpunkte
       const { data: historicalData, error: historicalError } = await supabase
         .from("historical_player_totals")
-        .select("total_points")
+        .select("total_points, tournaments_played")
         .eq("player_name", player.name)
         .maybeSingle();
 
       let historicalPoints = 0;
+      let historicalTournaments = 0;
       if (!historicalError && historicalData) {
         historicalPoints = historicalData.total_points;
+        historicalTournaments = historicalData.tournaments_played;
       }
 
-      // Hole alle Rundenergebnisse für diesen Spieler (seit dem Import)
+      // Hole alle Rundenergebnisse für diesen Spieler (aus den importierten Turnieren)
       const { data: results, error: resultsError } = await supabase
         .from("round_results")
-        .select("points")
+        .select("points, round_id, rounds!inner(tournament_id)")
         .eq("player_id", player.id);
 
       if (resultsError) throw resultsError;
@@ -95,20 +97,25 @@ export function Statistics({ onBack }: StatisticsProps) {
       // Berechne neue Punkte seit Import
       const newPoints = results?.reduce((sum, r) => sum + r.points, 0) || 0;
       
+      // Zähle einzigartige Turniere aus den Round Results
+      const uniqueTournaments = new Set(results?.map(r => r.rounds.tournament_id) || []);
+      const newTournaments = uniqueTournaments.size;
+      
       // Gesamtpunkte = historische Punkte + neue Punkte
       const totalPoints = historicalPoints + newPoints;
+      const totalTournaments = historicalTournaments + newTournaments;
 
       // Zeige alle Spieler an, auch die mit 0 Punkten
       stats.push({
         playerId: player.id,
         playerName: player.name,
         totalPoints,
-        tournamentsPlayed: historicalPoints > 0 ? 1 : 0,
+        tournamentsPlayed: totalTournaments,
         roundsPlayed: results?.length || 0,
         firstPlaces: 0,
         secondPlaces: 0,
         thirdPlaces: 0,
-        averagePointsPerRound: 0,
+        averagePointsPerRound: (results?.length || 0) > 0 ? newPoints / results!.length : 0,
         averageRanking: 0,
         winRate: 0,
         podiumRate: 0,
