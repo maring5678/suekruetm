@@ -71,12 +71,12 @@ Deno.serve(async (req) => {
               console.log(`Sheet ${sheetName} has ${jsonData.length} rows`);
               
               if (jsonData.length > 1) { // Mindestens Header + 1 Datenzeile
-                const imported = await processSheetData(jsonData, sheetName);
-                totalImported += imported;
+                await processSheetData(jsonData, sheetName);
               }
             }
             
-            return totalImported;
+            // Nach Verarbeitung aller Sheets: Alle Daten speichern
+            return await saveAllPlayerData();
           } catch (xlsxError) {
             console.error('Excel processing failed, trying as CSV:', xlsxError);
             // Fallback zu CSV
@@ -95,6 +95,9 @@ Deno.serve(async (req) => {
       }
     };
 
+    // Globale Player-Daten sammeln für alle Sheets
+    const globalPlayerTotals = new Map();
+
     const processSheetData = async (data: any[][], source: string) => {
       console.log(`Processing sheet data from ${source}...`);
       
@@ -106,8 +109,7 @@ Deno.serve(async (req) => {
       const headers = data[0].map((h: any) => String(h || '').trim());
       console.log('Sheet headers:', headers);
       
-      // Player-Daten sammeln
-      const playerTotals = new Map();
+      let playersFoundInSheet = 0;
       
       // Alle Zeilen durchgehen (ab Zeile 2, da Zeile 1 Header ist)
       for (let i = 1; i < data.length; i++) {
@@ -116,6 +118,8 @@ Deno.serve(async (req) => {
         if (!row || row.length === 0 || !row[0]) continue;
         
         const playerName = String(row[0]).trim();
+        let playerPointsInSheet = 0;
+        let playerTournamentsInSheet = 0;
         
         // Alle Runden für diesen Spieler durchgehen
         for (let j = 1; j < row.length && j < headers.length; j++) {
@@ -124,32 +128,59 @@ Deno.serve(async (req) => {
           // Nur wenn eine Zahl eingegeben ist (Spieler hat teilgenommen)
           if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
             const points = Number(pointsValue);
-            
-            // Zu den Gesamtpunkten hinzufügen
-            if (!playerTotals.has(playerName)) {
-              playerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
-            }
-            
-            const playerData = playerTotals.get(playerName);
-            playerData.total_points += points;
-            playerData.tournaments_played += 1;
+            playerPointsInSheet += points;
+            playerTournamentsInSheet += 1;
           }
+        }
+        
+        // Nur Spieler hinzufügen, die tatsächlich Punkte haben
+        if (playerTournamentsInSheet > 0) {
+          if (!globalPlayerTotals.has(playerName)) {
+            globalPlayerTotals.set(playerName, { total_points: 0, tournaments_played: 0 });
+          }
+          
+          const playerData = globalPlayerTotals.get(playerName);
+          playerData.total_points += playerPointsInSheet;
+          playerData.tournaments_played += playerTournamentsInSheet;
+          playersFoundInSheet++;
+          
+          console.log(`Sheet ${source}: ${playerName} = ${playerPointsInSheet} points, ${playerTournamentsInSheet} tournaments`);
         }
       }
       
-      console.log(`Found ${playerTotals.size} players in sheet ${source}`);
+      console.log(`Found ${playersFoundInSheet} active players in sheet ${source}`);
+      return playersFoundInSheet;
+    };
+
+    const saveAllPlayerData = async () => {
+      console.log(`Saving data for ${globalPlayerTotals.size} players to database...`);
+      let savedCount = 0;
       
-      // Daten in die Datenbank einfügen
-      let importedCount = 0;
-      
-      for (const [playerName, data] of playerTotals) {
+      for (const [playerName, data] of globalPlayerTotals) {
         try {
+          // Erst prüfen ob Spieler bereits existiert
+          const { data: existingPlayer } = await supabase
+            .from('historical_player_totals')
+            .select('total_points, tournaments_played')
+            .eq('player_name', playerName)
+            .single();
+          
+          let finalPoints = data.total_points;
+          let finalTournaments = data.tournaments_played;
+          
+          // Wenn Spieler existiert, addiere zu bestehenden Werten
+          if (existingPlayer) {
+            finalPoints += existingPlayer.total_points;
+            finalTournaments += existingPlayer.tournaments_played;
+            console.log(`Player ${playerName} exists - adding ${data.total_points} points to existing ${existingPlayer.total_points} = ${finalPoints} total`);
+          }
+          
           const { error } = await supabase
             .from('historical_player_totals')
             .upsert({
               player_name: playerName,
-              total_points: data.total_points,
-              tournaments_played: data.tournaments_played
+              total_points: finalPoints,
+              tournaments_played: finalTournaments
             }, {
               onConflict: 'player_name'
             });
@@ -157,15 +188,15 @@ Deno.serve(async (req) => {
           if (error) {
             console.error('Error upserting player data:', error);
           } else {
-            importedCount++;
-            console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
+            savedCount++;
+            console.log(`Final data for ${playerName}: ${finalPoints} points, ${finalTournaments} tournaments`);
           }
         } catch (error) {
           console.error('Error processing player:', playerName, error);
         }
       }
       
-      return importedCount;
+      return savedCount;
     };
     
     const processCSVData = async (csvText: string, source: string) => {
@@ -220,30 +251,47 @@ Deno.serve(async (req) => {
         
         console.log(`Found ${playerTotals.size} players in CSV`);
         
-        // Daten in die Datenbank einfügen
+        // Für CSV: Daten direkt in die Datenbank einfügen
         let importedCount = 0;
         
         for (const [playerName, data] of playerTotals) {
-        try {
-          const { error } = await supabase
-            .from('historical_player_totals')
-            .upsert({
-              player_name: playerName,
-              total_points: data.total_points,
-              tournaments_played: data.tournaments_played
-            }, {
-              onConflict: 'player_name'
-            });
-          
-          if (error) {
-            console.error('Error upserting player data:', error);
-          } else {
-            importedCount++;
-            console.log(`Imported data for ${playerName}: ${data.total_points} points, ${data.tournaments_played} tournaments`);
+          try {
+            // Erst prüfen ob Spieler bereits existiert
+            const { data: existingPlayer } = await supabase
+              .from('historical_player_totals')
+              .select('total_points, tournaments_played')
+              .eq('player_name', playerName)
+              .single();
+            
+            let finalPoints = data.total_points;
+            let finalTournaments = data.tournaments_played;
+            
+            // Wenn Spieler existiert, addiere zu bestehenden Werten
+            if (existingPlayer) {
+              finalPoints += existingPlayer.total_points;
+              finalTournaments += existingPlayer.tournaments_played;
+              console.log(`CSV: Player ${playerName} exists - adding ${data.total_points} points to existing ${existingPlayer.total_points} = ${finalPoints} total`);
+            }
+            
+            const { error } = await supabase
+              .from('historical_player_totals')
+              .upsert({
+                player_name: playerName,
+                total_points: finalPoints,
+                tournaments_played: finalTournaments
+              }, {
+                onConflict: 'player_name'
+              });
+            
+            if (error) {
+              console.error('Error upserting player data:', error);
+            } else {
+              importedCount++;
+              console.log(`CSV final data for ${playerName}: ${finalPoints} points, ${finalTournaments} tournaments`);
+            }
+          } catch (error) {
+            console.error('Error processing player:', playerName, error);
           }
-        } catch (error) {
-          console.error('Error processing player:', playerName, error);
-        }
         }
         
         return importedCount;
