@@ -150,6 +150,12 @@ All colors MUST be HSL.
   html {
     @apply dark;
   }
+
+  /* Ensure completely dark background */
+  html, body, #root {
+    background-color: hsl(var(--background)) !important;
+    background: var(--gradient-background) !important;
+  }
 }
 
 @layer components {

@@ -132,12 +132,10 @@ export function PlayerEdit({ currentRound, selectedPlayers, onPlayersConfirmed }
                 className="px-8"
               >
                 <ArrowRight className="h-5 w-5 mr-2" />
-                Zur Rundeneingabe ({tempSelectedPlayers.length} Spieler)
-                {tempSelectedPlayers.length < 2 && (
-                  <span className="ml-2 text-sm opacity-75">
-                    (min. 2 Spieler)
-                  </span>
-                )}
+                {tempSelectedPlayers.length >= 2 
+                  ? `Zur Rundeneingabe (${tempSelectedPlayers.length} Spieler)` 
+                  : `Mindestens 2 Spieler auswählen (${tempSelectedPlayers.length}/2)`
+                }
               </Button>
             </div>
           </CardContent>
