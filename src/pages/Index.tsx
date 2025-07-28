@@ -5,6 +5,7 @@ import { RoundInput } from "@/components/RoundInput";
 import { Leaderboard } from "@/components/Leaderboard";
 import { TournamentComplete } from "@/components/TournamentComplete";
 import { Statistics } from "@/components/Statistics";
+import { ExcelImport } from "@/components/ExcelImport";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,7 +25,7 @@ interface PlayerScore {
   }[];
 }
 
-type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics";
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -245,6 +246,14 @@ const Index = () => {
     setGameState("player-selection");
   };
 
+  const handleExcelImport = () => {
+    setGameState("excel-import");
+  };
+
+  const handleImportComplete = () => {
+    setGameState("statistics");
+  };
+
   const handleStartExcelImport = async () => {
     try {
       toast({
@@ -302,7 +311,7 @@ const Index = () => {
 
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onExcelImport={handleExcelImport} />;
     
     case "player-edit":
       return (
@@ -343,6 +352,14 @@ const Index = () => {
     
     case "statistics":
       return <Statistics onBack={handleBackFromStatistics} />;
+
+    case "excel-import":
+      return (
+        <ExcelImport
+          onImportComplete={handleImportComplete}
+          onBack={handleBackFromStatistics}
+        />
+      );
     
     default:
       return null;
