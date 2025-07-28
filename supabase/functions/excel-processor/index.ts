@@ -193,9 +193,19 @@ Deno.serve(async (req) => {
         let totalPointsForDay = 0;
         let hasAnyFilledField = false;
         
+        // Debug: Zeige alle Zellenwerte für die ersten 3 Spieler
+        if (playersProcessed < 3) {
+          console.log(`DEBUG ${sheetName}: Player "${playerName}" row:`, row);
+        }
+        
         // Durchgehe alle Spalten ab Index 1 (nach Spielername)
         for (let j = 1; j < row.length && j < headers.length; j++) {
           const pointsValue = row[j];
+          
+          // Debug: Zeige jeden Zellenwert für die ersten 3 Spieler
+          if (playersProcessed < 3) {
+            console.log(`DEBUG ${sheetName}: ${playerName} cell[${j}] = "${pointsValue}" (type: ${typeof pointsValue})`);
+          }
           
           // Ein Feld ist ausgefüllt wenn es nicht null, undefined oder leer ist
           if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '') {
@@ -209,9 +219,14 @@ Deno.serve(async (req) => {
           }
         }
         
+        // Debug: Zeige Ergebnis für die ersten 3 Spieler
+        if (playersProcessed < 3) {
+          console.log(`DEBUG ${sheetName}: ${playerName} hasAnyFilledField=${hasAnyFilledField}, totalPoints=${totalPointsForDay}`);
+        }
+        
         // Nur verarbeiten wenn mindestens ein Feld ausgefüllt ist
         if (!hasAnyFilledField) {
-          console.log(`Skipping ${playerName} - no filled fields (no participation)`);
+          console.log(`Skipping ${playerName} in ${sheetName} - no filled fields (no participation)`);
           continue;
         }
         
