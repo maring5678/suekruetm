@@ -63,9 +63,18 @@ Deno.serve(async (req) => {
             
             let totalTournaments = 0;
             
-            // Alle Sheets durchgehen und als separate Turniere behandeln
+            // Alle Sheets durchgehen und nur die mit Datumsformat verarbeiten
             for (const sheetName of workbook.SheetNames) {
-              console.log(`Processing sheet: ${sheetName}`);
+              console.log(`Checking sheet: ${sheetName}`);
+              
+              // Prüfe ob der Sheet-Name dem Datums-Format DD.MM.YY entspricht
+              const datePattern = /^\d{1,2}\.\d{1,2}\.\d{2,4}$/;
+              if (!datePattern.test(sheetName.trim())) {
+                console.log(`Skipping sheet "${sheetName}" - doesn't match date format DD.MM.YY`);
+                continue;
+              }
+              
+              console.log(`Processing tournament sheet: ${sheetName}`);
               const worksheet = workbook.Sheets[sheetName];
               
               // Sheet zu JSON konvertieren (einfacher als CSV)
@@ -78,6 +87,7 @@ Deno.serve(async (req) => {
               }
             }
             
+            console.log(`Processed ${totalTournaments} tournament sheets (date format only)`);
             return totalTournaments;
           } catch (xlsxError) {
             console.error('Excel processing failed, trying as CSV:', xlsxError);
