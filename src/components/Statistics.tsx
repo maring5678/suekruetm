@@ -203,55 +203,161 @@ export function Statistics({ onBack }: StatisticsProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button onClick={onBack} variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück
-          </Button>
-          <h1 className="text-3xl font-bold">Statistiken</h1>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Zurück
+            </Button>
+          </div>
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Statistiken
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Umfassende Auswertung aller Turnierdaten
+            </p>
+          </div>
         </div>
 
-        <Tabs defaultValue="players" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="players">Spieler</TabsTrigger>
-            <TabsTrigger value="tournaments">Turniere</TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="players" className="space-y-8">
+          <div className="flex justify-center">
+            <TabsList className="grid w-full max-w-lg grid-cols-2 p-1 h-12 shadow-lg bg-card">
+              <TabsTrigger value="players" className="flex items-center gap-2 text-sm font-medium">
+                <Trophy className="h-4 w-4" />
+                Spieler
+              </TabsTrigger>
+              <TabsTrigger value="tournaments" className="flex items-center gap-2 text-sm font-medium">
+                <Target className="h-4 w-4" />
+                Turniere
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="players" className="space-y-6">
-            {/* Einfache Punkteübersicht */}
-            <Card>
+          <TabsContent value="players" className="space-y-8">
+            {/* Top Players Podium */}
+            {playerStats.length >= 3 && (
+              <Card className="overflow-hidden shadow-xl border-0 bg-gradient-to-br from-card to-accent/10">
+                <CardHeader className="text-center pb-2">
+                  <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+                    <Trophy className="h-6 w-6 text-tournament-gold" />
+                    Top 3 Spieler
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-center items-end gap-8 mb-6">
+                    {/* 2nd Place */}
+                    {playerStats[1] && (
+                      <div className="text-center">
+                        <div className="w-20 h-24 bg-gradient-to-t from-tournament-silver/20 to-tournament-silver/40 rounded-t-lg flex items-end justify-center pb-2 mb-3">
+                          <Trophy className="h-8 w-8 text-tournament-silver" />
+                        </div>
+                        <h3 className="font-bold text-lg">{playerStats[1].playerName}</h3>
+                        <p className="text-2xl font-bold text-tournament-silver">{playerStats[1].totalPoints}</p>
+                        <Badge variant="secondary" className="mt-2">2. Platz</Badge>
+                      </div>
+                    )}
+                    
+                    {/* 1st Place */}
+                    {playerStats[0] && (
+                      <div className="text-center">
+                        <div className="w-24 h-32 bg-gradient-to-t from-tournament-gold/20 to-tournament-gold/40 rounded-t-lg flex items-end justify-center pb-2 mb-3">
+                          <Trophy className="h-10 w-10 text-tournament-gold" />
+                        </div>
+                        <h3 className="font-bold text-xl">{playerStats[0].playerName}</h3>
+                        <p className="text-3xl font-bold text-tournament-gold">{playerStats[0].totalPoints}</p>
+                        <Badge className="mt-2 bg-tournament-gold text-black">Champion</Badge>
+                      </div>
+                    )}
+                    
+                    {/* 3rd Place */}
+                    {playerStats[2] && (
+                      <div className="text-center">
+                        <div className="w-20 h-20 bg-gradient-to-t from-tournament-bronze/20 to-tournament-bronze/40 rounded-t-lg flex items-end justify-center pb-2 mb-3">
+                          <Trophy className="h-7 w-7 text-tournament-bronze" />
+                        </div>
+                        <h3 className="font-bold text-lg">{playerStats[2].playerName}</h3>
+                        <p className="text-2xl font-bold text-tournament-bronze">{playerStats[2].totalPoints}</p>
+                        <Badge variant="outline" className="mt-2 border-tournament-bronze text-tournament-bronze">3. Platz</Badge>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* All Players Leaderboard */}
+            <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
-                  Spieler nach Gesamtpunkten
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Vollständige Rangliste
                 </CardTitle>
                 <CardDescription>
-                  Rangliste aller Spieler basierend auf Gesamtpunktzahl
+                  Alle Spieler sortiert nach Gesamtpunktzahl
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {playerStats.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Keine Spielerdaten gefunden. Erstelle zuerst ein Turnier mit Rundenergebnissen.
-                  </p>
+                  <div className="text-center py-12">
+                    <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground text-lg">
+                      Keine Spielerdaten gefunden
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Erstelle zuerst ein Turnier mit Rundenergebnissen
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {playerStats.map((player, index) => (
-                      <div key={player.playerId} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          {getRankIcon(index)}
-                          <div>
-                            <h3 className="font-semibold">{player.playerName}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {player.roundsPlayed} Runden gespielt
-                            </p>
+                      <div 
+                        key={player.playerId} 
+                        className={`
+                          group relative overflow-hidden rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md
+                          ${index < 3 
+                            ? 'bg-gradient-to-r from-accent/20 via-accent/10 to-background border-2 border-accent/30' 
+                            : 'bg-card border hover:border-accent/50'
+                          }
+                        `}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className={`
+                              flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg
+                              ${index === 0 ? 'bg-tournament-gold text-black' :
+                                index === 1 ? 'bg-tournament-silver text-black' :
+                                index === 2 ? 'bg-tournament-bronze text-white' :
+                                'bg-muted text-muted-foreground'
+                              }
+                            `}>
+                              {index < 3 ? <Trophy className="h-5 w-5" /> : index + 1}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
+                                {player.playerName}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {player.roundsPlayed} Runden gespielt
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold">{player.totalPoints}</div>
-                          <div className="text-sm text-muted-foreground">Punkte</div>
+                          <div className="text-right">
+                            <div className={`
+                              text-3xl font-bold transition-all duration-200 group-hover:scale-110
+                              ${index === 0 ? 'text-tournament-gold' :
+                                index === 1 ? 'text-tournament-silver' :
+                                index === 2 ? 'text-tournament-bronze' :
+                                'text-foreground'
+                              }
+                            `}>
+                              {player.totalPoints}
+                            </div>
+                            <div className="text-sm text-muted-foreground">Punkte</div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -259,82 +365,122 @@ export function Statistics({ onBack }: StatisticsProps) {
                 )}
               </CardContent>
             </Card>
-
           </TabsContent>
 
-          <TabsContent value="tournaments" className="space-y-6">
+          <TabsContent value="tournaments" className="space-y-8">
+            {/* Key Metrics Overview */}
             {tournamentStats && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Gesamt Turniere</CardTitle>
-                    <Trophy className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{tournamentStats.totalTournaments}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {tournamentStats.completedTournaments} abgeschlossen
-                    </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-primary/10 rounded-full">
+                        <Trophy className="h-6 w-6 text-primary" />
+                      </div>
+                      <Badge variant="outline">{tournamentStats.completedTournaments} abgeschlossen</Badge>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">{tournamentStats.totalTournaments}</div>
+                    <p className="text-muted-foreground">Gesamt Turniere</p>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Gesamt Runden</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{tournamentStats.totalRounds}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Ø {tournamentStats.averageRoundsPerTournament.toFixed(1)} pro Turnier
-                    </p>
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-info/10 rounded-full">
+                        <TrendingUp className="h-6 w-6 text-info" />
+                      </div>
+                      <Badge variant="outline">Ø {tournamentStats.averageRoundsPerTournament.toFixed(1)}</Badge>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">{tournamentStats.totalRounds}</div>
+                    <p className="text-muted-foreground">Gesamt Runden</p>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Spieler Teilnahmen</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{tournamentStats.totalPlayers}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Ø {tournamentStats.averagePlayersPerTournament.toFixed(1)} pro Turnier
-                    </p>
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-success/10 rounded-full">
+                        <Users className="h-6 w-6 text-success" />
+                      </div>
+                      <Badge variant="outline">Ø {tournamentStats.averagePlayersPerTournament.toFixed(1)}</Badge>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">{tournamentStats.totalPlayers}</div>
+                    <p className="text-muted-foreground">Teilnahmen</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-warning/10 rounded-full">
+                        <Target className="h-6 w-6 text-warning" />
+                      </div>
+                      <Badge variant="outline">{playerStats.length} Aktiv</Badge>
+                    </div>
+                    <div className="text-3xl font-bold mb-1">
+                      {playerStats.reduce((sum, p) => sum + p.totalPoints, 0)}
+                    </div>
+                    <p className="text-muted-foreground">Gesamtpunkte</p>
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            <Card>
+            {/* Detailed Tournament Statistics */}
+            <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Turnierübersicht</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Target className="h-5 w-5 text-primary" />
+                  Turnieranalyse
+                </CardTitle>
                 <CardDescription>
-                  Allgemeine Statistiken über alle Turniere
+                  Detaillierte Statistiken und Kennzahlen
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-primary">{tournamentStats?.completedTournaments || 0}</div>
-                      <p className="text-sm text-muted-foreground">Abgeschlossene Turniere</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{tournamentStats?.totalRounds || 0}</div>
-                      <p className="text-sm text-muted-foreground">Gespielte Runden</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">
-                        {playerStats.length}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                      <span className="font-medium">Abschlussrate</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-success">
+                          {tournamentStats ? Math.round((tournamentStats.completedTournaments / tournamentStats.totalTournaments) * 100) : 0}%
+                        </div>
+                        <div className="text-sm text-muted-foreground">der Turniere</div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Aktive Spieler</p>
                     </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {playerStats.reduce((sum, p) => sum + p.totalPoints, 0)}
+                    
+                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                      <span className="font-medium">Aktivitätslevel</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-info">
+                          {tournamentStats ? tournamentStats.averageRoundsPerTournament.toFixed(1) : 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Runden/Turnier</div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Gesamtpunkte vergeben</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                      <span className="font-medium">Beteiligung</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-warning">
+                          {tournamentStats ? tournamentStats.averagePlayersPerTournament.toFixed(1) : 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Spieler/Turnier</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                      <span className="font-medium">Durchschnittspunkte</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">
+                          {playerStats.length > 0 ? Math.round(playerStats.reduce((sum, p) => sum + p.totalPoints, 0) / playerStats.length) : 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">pro Spieler</div>
+                      </div>
                     </div>
                   </div>
                 </div>
