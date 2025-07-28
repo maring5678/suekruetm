@@ -38,22 +38,56 @@ Deno.serve(async (req) => {
     // Datei als ArrayBuffer lesen
     const arrayBuffer = await fileData.arrayBuffer();
     
-    // Hier würden wir normalerweise eine Excel-Parser-Library verwenden
-    // Da wir in Deno sind, simulieren wir das Parsing erstmal
-    
     console.log('File size:', arrayBuffer.byteLength, 'bytes');
     
-    // TODO: Excel-Parsing implementieren
-    // Für jetzt nehmen wir an, dass die Datei erfolgreich verarbeitet wurde
-    
     const processExcelData = async () => {
-      console.log('Starting CSV data processing...');
+      console.log('Starting Excel/CSV data processing...');
       
       try {
-        // CSV-Daten als Text lesen
-        const csvText = new TextDecoder().decode(arrayBuffer);
-        console.log('CSV content preview:', csvText.substring(0, 500));
+        // Prüfen ob es eine Excel-Datei ist oder CSV
+        const isExcel = fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
         
+        if (isExcel) {
+          // Excel-Verarbeitung mit SheetJS
+          const { read, utils } = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs');
+          
+          const workbook = read(arrayBuffer, { type: 'array' });
+          console.log('Excel workbook loaded with sheets:', workbook.SheetNames);
+          
+          let totalImported = 0;
+          
+          // Alle Sheets durchgehen
+          for (const sheetName of workbook.SheetNames) {
+            console.log(`Processing sheet: ${sheetName}`);
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Sheet zu CSV konvertieren
+            const csvData = utils.sheet_to_csv(worksheet, { FS: ';' });
+            console.log(`Sheet ${sheetName} converted to CSV, length: ${csvData.length}`);
+            
+            if (csvData.trim()) {
+              const imported = await processCSVData(csvData, sheetName);
+              totalImported += imported;
+            }
+          }
+          
+          return totalImported;
+        } else {
+          // CSV-Verarbeitung
+          const csvText = new TextDecoder().decode(arrayBuffer);
+          console.log('CSV content preview:', csvText.substring(0, 500));
+          return await processCSVData(csvText, 'CSV');
+        }
+      } catch (error) {
+        console.error('Error processing file:', error);
+        throw error;
+      }
+    };
+    
+    const processCSVData = async (csvText: string, source: string) => {
+      console.log(`Processing ${source} data...`);
+      
+      try {
         // CSV in Zeilen aufteilen
         const lines = csvText.split('\n').filter(line => line.trim());
         if (lines.length === 0) {
