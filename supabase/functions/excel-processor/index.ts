@@ -74,6 +74,16 @@ Deno.serve(async (req) => {
                 continue;
               }
               
+              // Prüfe ob das Datum >= 21.08.22 ist
+              const [day, month, year] = sheetName.trim().split('.');
+              const sheetDate = new Date(parseInt('20' + year), parseInt(month) - 1, parseInt(day));
+              const cutoffDate = new Date(2022, 7, 21); // 21.08.2022 (Monate sind 0-basiert)
+              
+              if (sheetDate < cutoffDate) {
+                console.log(`Skipping sheet "${sheetName}" - before cutoff date 21.08.22`);
+                continue;
+              }
+              
               console.log(`Processing tournament sheet: ${sheetName}`);
               const worksheet = workbook.Sheets[sheetName];
               
