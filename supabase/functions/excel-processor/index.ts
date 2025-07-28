@@ -186,29 +186,19 @@ Deno.serve(async (req) => {
         
         // Alle Punkte für diesen Spieler in dieser Zeile addieren
         let totalPointsForDay = 0;
-        let hasAnyContent = false;
         
         // Durchgehe alle Spalten ab Index 1 (nach Spielername)
         for (let j = 1; j < row.length && j < headers.length; j++) {
           const pointsValue = row[j];
           
-          // Nur echte Werte zählen als Teilnahme (nicht leere Strings/Zellen)
-          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '') {
-            hasAnyContent = true;
-            
-            // Prüfe ob es eine gültige Zahl ist
-            if (!isNaN(Number(pointsValue))) {
-              const points = Number(pointsValue);
-              totalPointsForDay += points;
-            }
+          // Prüfe ob es eine gültige Zahl ist
+          if (pointsValue !== null && pointsValue !== undefined && pointsValue !== '' && !isNaN(Number(pointsValue))) {
+            const points = Number(pointsValue);
+            totalPointsForDay += points;
           }
         }
         
-        // Nur verarbeiten wenn Spieler tatsächlich Werte in den Zellen hat
-        if (!hasAnyContent) {
-          console.log(`Skipping ${playerName} - no content in cells (no participation)`);
-          continue;
-        }
+        // Jeder Spieler mit einer Zeile hat teilgenommen (auch wenn alle Felder leer sind)
         
         console.log(`${playerName}: ${totalPointsForDay} total points for ${sheetName} (participated)`);
         
@@ -341,29 +331,19 @@ Deno.serve(async (req) => {
           
           // Alle Punkte für diesen Spieler in dieser Zeile addieren
           let totalPointsForDay = 0;
-          let hasAnyPoints = false;
           
           // Durchgehe alle Spalten ab Index 1 (nach Spielername)
           for (let j = 1; j < values.length && j < headers.length; j++) {
             const pointsStr = values[j];
             
-            // Teilnahme = irgendein Wert in der Zelle (auch 0, auch leere Strings die zu 0 werden)
-            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '') {
-              hasAnyPoints = true; // Spieler war anwesend/hat teilgenommen
-              
-              // Prüfe ob es eine gültige Zahl ist
-              if (!isNaN(Number(pointsStr))) {
-                const points = Number(pointsStr);
-                totalPointsForDay += points;
-              }
+            // Prüfe ob es eine gültige Zahl ist
+            if (pointsStr !== null && pointsStr !== undefined && pointsStr !== '' && !isNaN(Number(pointsStr))) {
+              const points = Number(pointsStr);
+              totalPointsForDay += points;
             }
           }
           
-          // Spieler hat teilgenommen, wenn er mindestens eine Ziffer in der Zeile hat
-          if (!hasAnyPoints) {
-            console.log(`Skipping ${playerName} - no numbers found in row (no participation)`);
-            continue;
-          }
+          // Jeder Spieler mit einer Zeile hat teilgenommen (auch wenn alle Felder leer sind)
           
           console.log(`${playerName}: ${totalPointsForDay} total points for ${tournamentName} (participated)`);
           
