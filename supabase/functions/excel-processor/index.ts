@@ -63,7 +63,8 @@ Deno.serve(async (req) => {
             
             let totalTournaments = 0;
             
-            // Alle Sheets durchgehen und nur die mit Datumsformat verarbeiten
+            // Sammle erstmal alle gültigen Sheets
+            const validSheets = [];
             for (const sheetName of workbook.SheetNames) {
               console.log(`Checking sheet: ${sheetName}`);
               
@@ -84,16 +85,38 @@ Deno.serve(async (req) => {
                 continue;
               }
               
-              console.log(`Processing tournament sheet: ${sheetName}`);
-              const worksheet = workbook.Sheets[sheetName];
+              validSheets.push(sheetName);
+            }
+            
+            console.log(`Found ${validSheets.length} valid tournament sheets to process`);
+            
+            // Verarbeite in kleineren Batches um Speicher zu schonen
+            const BATCH_SIZE = 15;
+            for (let batchStart = 0; batchStart < validSheets.length; batchStart += BATCH_SIZE) {
+              const batchEnd = Math.min(batchStart + BATCH_SIZE, validSheets.length);
+              const batchSheets = validSheets.slice(batchStart, batchEnd);
               
-              // Sheet zu JSON konvertieren (einfacher als CSV)
-              const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-              console.log(`Sheet ${sheetName} has ${jsonData.length} rows`);
+              console.log(`Processing batch ${Math.floor(batchStart/BATCH_SIZE) + 1}: sheets ${batchStart + 1}-${batchEnd} of ${validSheets.length}`);
               
-              if (jsonData.length > 1) { // Mindestens Header + 1 Datenzeile
-                const processed = await processSheetAsTournament(jsonData, sheetName);
-                if (processed > 0) totalTournaments++;
+              // Verarbeite Sheets in diesem Batch sequenziell
+              for (const sheetName of batchSheets) {
+                console.log(`Processing tournament sheet: ${sheetName}`);
+                const worksheet = workbook.Sheets[sheetName];
+                
+                // Sheet zu JSON konvertieren (einfacher als CSV)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                console.log(`Sheet ${sheetName} has ${jsonData.length} rows`);
+                
+                if (jsonData.length > 1) { // Mindestens Header + 1 Datenzeile
+                  const processed = await processSheetAsTournament(jsonData, sheetName);
+                  if (processed > 0) totalTournaments++;
+                }
+              }
+              
+              // Kurze Pause zwischen Batches um Speicher freizugeben
+              if (batchEnd < validSheets.length) {
+                console.log(`Batch completed. Pausing briefly...`);
+                await new Promise(resolve => setTimeout(resolve, 150));
               }
             }
             
