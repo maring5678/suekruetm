@@ -110,41 +110,6 @@ export const Leaderboard = ({
                 </Card>
               ))}
               
-              {/* Vollständige Rangliste für alle Spieler */}
-              {playerScores.length > sortedScores.length && (
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Vollständige Rangliste</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {playerScores
-                        .sort((a, b) => b.totalPoints - a.totalPoints)
-                        .map((score, index) => (
-                          <div 
-                            key={score.player.id} 
-                            className={`
-                              flex items-center justify-between p-3 rounded-lg border
-                              ${onPlayerClick ? 'cursor-pointer hover:bg-accent/5' : ''}
-                            `}
-                            onClick={() => onPlayerClick?.(score.player.id, score.player.name)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center text-sm font-bold">
-                                {index + 1}
-                              </div>
-                              <span className="font-medium">{score.player.name}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="font-bold">{score.totalPoints}</span>
-                              <span className="text-muted-foreground ml-1">Punkte</span>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </CardContent>
         </Card>

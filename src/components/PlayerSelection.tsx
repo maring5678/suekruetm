@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Play, Settings, BarChart3, Star } from "lucide-react";
+import { Users, Play, Settings, BarChart3, Star, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
@@ -16,10 +16,11 @@ interface Player {
 interface PlayerSelectionProps {
   onStartTournament: (selectedPlayers: Player[]) => void;
   onShowStatistics: () => void;
+  onShowTournaments: () => void;
   onExcelImport?: () => void;
 }
 
-export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelImport }: PlayerSelectionProps) => {
+export const PlayerSelection = ({ onStartTournament, onShowStatistics, onShowTournaments, onExcelImport }: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -284,7 +285,7 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
               )}
 
               {/* Action Buttons */}
-              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowStatistics}>
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-info/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
@@ -297,6 +298,22 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
                     <Button variant="outline" className="w-full group-hover:bg-info/10">
                       <BarChart3 className="h-4 w-4 mr-2" />
                       Statistiken öffnen
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowTournaments}>
+                  <CardContent className="p-8 text-center">
+                    <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                      <Trophy className="h-8 w-8 text-secondary" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Turniere verwalten</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Vergangene und laufende Turniere anzeigen
+                    </p>
+                    <Button variant="outline" className="w-full group-hover:bg-secondary/10">
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Turniere öffnen
                     </Button>
                   </CardContent>
                 </Card>

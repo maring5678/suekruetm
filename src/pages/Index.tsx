@@ -7,6 +7,7 @@ import { TournamentComplete } from "@/components/TournamentComplete";
 import { Statistics } from "@/components/Statistics";
 import { ExcelImport } from "@/components/ExcelImport";
 import { PlayerDetail } from "@/components/PlayerDetail";
+import { TournamentOverview } from "@/components/TournamentOverview";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,7 +27,7 @@ interface PlayerScore {
   }[];
 }
 
-type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail";
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail" | "tournament-overview";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -249,6 +250,14 @@ const Index = () => {
     setGameState("player-selection");
   };
 
+  const handleShowTournaments = () => {
+    setGameState("tournament-overview");
+  };
+
+  const handleBackFromTournaments = () => {
+    setGameState("player-selection");
+  };
+
   const handleExcelImport = () => {
     setGameState("excel-import");
   };
@@ -331,7 +340,7 @@ const Index = () => {
 
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onShowTournaments={handleShowTournaments} />;
     
     case "player-edit":
       return (
@@ -390,6 +399,9 @@ const Index = () => {
           onBack={handleBackFromPlayerDetail}
         />
       ) : null;
+
+    case "tournament-overview":
+      return <TournamentOverview onBack={handleBackFromTournaments} currentTournamentId={currentTournamentId} />;
     
     default:
       return null;
