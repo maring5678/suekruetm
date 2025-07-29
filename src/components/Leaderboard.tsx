@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, Plus, User } from "lucide-react";
+import { Trophy, Medal, Award, Plus, User, ArrowLeft } from "lucide-react";
 
 interface Player {
   id: string;
@@ -25,6 +25,7 @@ interface LeaderboardProps {
   onNextRound: () => void;
   onEndTournament: () => void;
   onPlayerClick?: (playerId: string, playerName: string) => void;
+  onBack?: () => void;
 }
 
 export const Leaderboard = ({ 
@@ -32,7 +33,8 @@ export const Leaderboard = ({
   currentRound,
   onNextRound, 
   onEndTournament,
-  onPlayerClick
+  onPlayerClick,
+  onBack
 }: LeaderboardProps) => {
   const sortedScores = [...playerScores].sort((a, b) => b.totalPoints - a.totalPoints);
 
@@ -57,6 +59,12 @@ export const Leaderboard = ({
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
+        {onBack && (
+          <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Zurück
+          </Button>
+        )}
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">

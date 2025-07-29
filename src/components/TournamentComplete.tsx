@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, RotateCcw, Crown } from "lucide-react";
+import { Trophy, Medal, Award, RotateCcw, Crown, ArrowLeft } from "lucide-react";
 
 interface Player {
   id: string;
@@ -22,9 +22,11 @@ interface PlayerScore {
 interface TournamentCompleteProps {
   playerScores: PlayerScore[];
   onNewTournament: () => void;
+  onPlayerClick?: (playerId: string, playerName: string) => void;
+  onBack?: () => void;
 }
 
-export const TournamentComplete = ({ playerScores, onNewTournament }: TournamentCompleteProps) => {
+export const TournamentComplete = ({ playerScores, onNewTournament, onPlayerClick, onBack }: TournamentCompleteProps) => {
   const sortedScores = [...playerScores].sort((a, b) => b.totalPoints - a.totalPoints);
 
   const getRankIcon = (rank: number) => {
@@ -41,6 +43,12 @@ export const TournamentComplete = ({ playerScores, onNewTournament }: Tournament
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
+        {onBack && (
+          <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Zurück
+          </Button>
+        )}
         <Card className="border-2 border-primary">
           <CardHeader className="text-center bg-primary/5">
             <CardTitle className="text-4xl font-bold flex items-center justify-center gap-3">
@@ -57,12 +65,13 @@ export const TournamentComplete = ({ playerScores, onNewTournament }: Tournament
           {sortedScores.map((score, index) => (
             <Card 
               key={score.player.id} 
-              className={`relative overflow-hidden ${
+              className={`relative overflow-hidden transition-all duration-200 ${
                 index === 0 ? 'border-2 border-tournament-gold bg-gradient-to-r from-tournament-gold/10 to-transparent' :
                 index === 1 ? 'border-2 border-tournament-silver bg-gradient-to-r from-tournament-silver/10 to-transparent' :
                 index === 2 ? 'border-2 border-tournament-bronze bg-gradient-to-r from-tournament-bronze/10 to-transparent' :
                 'border border-border'
-              }`}
+              } ${onPlayerClick ? 'cursor-pointer hover:scale-[1.02] hover:shadow-xl' : ''}`}
+              onClick={() => onPlayerClick?.(score.player.id, score.player.name)}
             >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">

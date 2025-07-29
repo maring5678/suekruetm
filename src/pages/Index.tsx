@@ -487,6 +487,7 @@ const Index = () => {
           onNextRound={handleNextRound}
           onEndTournament={handleEndTournament}
           onPlayerClick={handlePlayerClick}
+          onBack={() => setGameState('round-input')}
         />
       );
     
@@ -495,11 +496,13 @@ const Index = () => {
         <TournamentComplete
           playerScores={playerScoresArray}
           onNewTournament={handleNewTournament}
+          onPlayerClick={handlePlayerClick}
+          onBack={() => setGameState('player-selection')}
         />
       );
     
     case "statistics":
-      return <Statistics onBack={handleBackFromStatistics} />;
+      return <Statistics onBack={handleBackFromStatistics} onPlayerClick={handlePlayerClick} />;
 
     case "excel-import":
       return (

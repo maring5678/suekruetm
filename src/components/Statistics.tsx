@@ -33,9 +33,10 @@ interface TournamentStats {
 
 interface StatisticsProps {
   onBack: () => void;
+  onPlayerClick: (playerId: string, playerName: string) => void;
 }
 
-export function Statistics({ onBack }: StatisticsProps) {
+export function Statistics({ onBack, onPlayerClick }: StatisticsProps) {
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
   const [tournamentStats, setTournamentStats] = useState<TournamentStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -360,7 +361,7 @@ export function Statistics({ onBack }: StatisticsProps) {
                             : 'bg-card border hover:border-accent/50'
                           }
                         `}
-                        onClick={() => {/* TODO: Implementiere Player Detail View */}}
+                        onClick={() => onPlayerClick(player.playerId, player.playerName)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
