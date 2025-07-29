@@ -72,8 +72,7 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
             )
           )
         `)
-        .eq('player_id', playerId)
-        .order('rounds.tournaments.created_at', { ascending: false });
+        .eq('player_id', playerId);
 
       if (roundError) throw roundError;
 

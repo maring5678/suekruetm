@@ -36,9 +36,10 @@ interface TournamentOverviewProps {
   onBack: () => void;
   currentTournamentId: string | null;
   onContinueTournament: (tournamentId: string) => void;
+  onDeleteTournament?: (tournamentId: string) => void;
 }
 
-export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTournament }: TournamentOverviewProps) => {
+export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTournament, onDeleteTournament }: TournamentOverviewProps) => {
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
   const [tournamentDetail, setTournamentDetail] = useState<TournamentDetail | null>(null);
@@ -147,6 +148,7 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
         onSelectTournament={handleSelectTournament}
         currentTournamentId={currentTournamentId}
         onContinueTournament={onContinueTournament}
+        onDeleteTournament={onDeleteTournament}
       />
     );
   }

@@ -476,6 +476,7 @@ const Index = () => {
           players={selectedPlayers}
           onRoundComplete={handleRoundComplete}
           onPlayersChange={handlePlayersConfirmed}
+          onBack={() => setGameState('player-selection')}
         />
       );
     
@@ -527,6 +528,11 @@ const Index = () => {
           onBack={() => setGameState('player-selection')}
           currentTournamentId={currentTournamentId}
           onContinueTournament={handleContinueTournament}
+          onDeleteTournament={(tournamentId) => {
+            if (tournamentId === currentTournamentId) {
+              setCurrentTournamentId(null);
+            }
+          }}
         />
       );
     

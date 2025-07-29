@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Play, Settings, BarChart3, Star, Trophy } from "lucide-react";
+import { Users, Play, Settings, BarChart3, Star, Trophy, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
@@ -22,6 +22,7 @@ interface PlayerSelectionProps {
   onJoinTournament: (tournamentId: string) => void;
   isCurrentTournament: boolean;
   currentTournamentId: string | null;
+  onBack?: () => void;
 }
 
 export const PlayerSelection = ({ 
@@ -31,7 +32,8 @@ export const PlayerSelection = ({
   onTournamentOverview,
   onJoinTournament,
   isCurrentTournament,
-  currentTournamentId
+  currentTournamentId,
+  onBack
 }: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
@@ -160,6 +162,20 @@ export const PlayerSelection = ({
 
         {/* Header */}
         <div className="text-center mb-12">
+          <div className="absolute top-6 left-6">
+            {onBack && (
+              <Button 
+                onClick={onBack} 
+                variant="outline" 
+                size="sm"
+                className="backdrop-blur-sm bg-card/50 hover:bg-card/80 transition-all duration-300"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Zurück
+              </Button>
+            )}
+          </div>
+          
           <div className="absolute top-6 right-6">
             <Button 
               onClick={() => setShowManagement(true)} 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trophy, Calendar, Users, Play } from "lucide-react";
+import { ArrowLeft, Trophy, Calendar, Users, Play, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,9 +20,10 @@ interface TournamentListProps {
   onSelectTournament: (tournamentId: string) => void;
   currentTournamentId: string | null;
   onContinueTournament: (tournamentId: string) => void;
+  onDeleteTournament?: (tournamentId: string) => void;
 }
 
-export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId, onContinueTournament }: TournamentListProps) => {
+export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId, onContinueTournament, onDeleteTournament }: TournamentListProps) => {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -78,6 +79,59 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTournament = async (tournamentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!onDeleteTournament) return;
+    
+    const tournament = tournaments.find(t => t.id === tournamentId);
+    if (!tournament) return;
+    
+    const confirmed = window.confirm(
+      `Sind Sie sicher, dass Sie das Turnier "${tournament.name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      // Hole zuerst alle Runden-IDs für dieses Turnier
+      const { data: rounds } = await supabase
+        .from('rounds')
+        .select('id')
+        .eq('tournament_id', tournamentId);
+      
+      if (rounds && rounds.length > 0) {
+        const roundIds = rounds.map(r => r.id);
+        // Lösche alle round_results für diese Runden
+        await supabase
+          .from('round_results')
+          .delete()
+          .in('round_id', roundIds);
+      }
+      
+      // Lösche alle zugehörigen Daten in der richtigen Reihenfolge
+      await supabase.from('rounds').delete().eq('tournament_id', tournamentId);
+      await supabase.from('tournament_players').delete().eq('tournament_id', tournamentId);
+      await supabase.from('tournaments').delete().eq('id', tournamentId);
+      
+      toast({
+        title: "Erfolgreich gelöscht",
+        description: `Turnier "${tournament.name}" wurde gelöscht.`,
+      });
+      
+      // Aktualisiere die Liste
+      loadTournaments();
+      onDeleteTournament(tournamentId);
+    } catch (error) {
+      console.error('Fehler beim Löschen des Turniers:', error);
+      toast({
+        title: "Fehler",
+        description: "Turnier konnte nicht gelöscht werden.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -203,6 +257,15 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
                             }}
                           >
                             Fortsetzen
+                          </Button>
+                        )}
+                        {onDeleteTournament && tournament.id !== currentTournamentId && (
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={(e) => handleDeleteTournament(tournament.id, e)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>

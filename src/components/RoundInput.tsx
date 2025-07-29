@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Trophy, MapPin, Plus, Users, Check, UserMinus } from "lucide-react";
+import { Trophy, MapPin, Plus, Users, Check, UserMinus, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,9 +20,10 @@ interface RoundInputProps {
   players: Player[];
   onRoundComplete: (creator: string, trackNumber: string, trackName: string, rankings: Player[]) => void;
   onPlayersChange: (players: Player[]) => void;
+  onBack?: () => void;
 }
 
-export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersChange }: RoundInputProps) => {
+export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersChange, onBack }: RoundInputProps) => {
   const [creator, setCreator] = useState("");
   const [trackNumber, setTrackNumber] = useState("");
   const [previousCreators, setPreviousCreators] = useState<string[]>([]);
@@ -189,6 +190,14 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-2xl mx-auto">
+          {onBack && (
+            <div className="mb-6">
+              <Button onClick={onBack} variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Zurück
+              </Button>
+            </div>
+          )}
           <Card>
             <CardHeader className="text-center">
               <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
