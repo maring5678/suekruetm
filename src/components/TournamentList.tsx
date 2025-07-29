@@ -113,9 +113,14 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
       }
       
       // Lösche alle zugehörigen Daten in der richtigen Reihenfolge
-      await supabase.from('rounds').delete().eq('tournament_id', tournamentId);
-      await supabase.from('tournament_players').delete().eq('tournament_id', tournamentId);
-      await supabase.from('tournaments').delete().eq('id', tournamentId);
+      const { error: roundsError } = await supabase.from('rounds').delete().eq('tournament_id', tournamentId);
+      if (roundsError) throw roundsError;
+      
+      const { error: playersError } = await supabase.from('tournament_players').delete().eq('tournament_id', tournamentId);
+      if (playersError) throw playersError;
+      
+      const { error: tournamentError } = await supabase.from('tournaments').delete().eq('id', tournamentId);
+      if (tournamentError) throw tournamentError;
       
       toast({
         title: "Erfolgreich gelöscht",
@@ -123,7 +128,7 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
       });
       
       // Aktualisiere die Liste
-      loadTournaments();
+      await loadTournaments();
       onDeleteTournament(tournamentId);
     } catch (error) {
       console.error('Fehler beim Löschen des Turniers:', error);

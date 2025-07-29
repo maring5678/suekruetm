@@ -388,19 +388,23 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
               Runde {roundNumber} - {(isCustomCreator ? customCreator : creator)} #{trackNumber}
             </CardTitle>
             <p className="text-muted-foreground">
-              Wählen Sie die ersten 3 Plätze aus
+              Beginnen Sie mit dem letzten Platz und arbeiten sich nach oben
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
-              {[1, 2, 3].filter(position => {
-                // Bei 2 Spielern nur 1. Platz anzeigen
-                if (players.length === 2) return position === 1;
-                // Bei 3 Spielern nur 1. und 2. Platz anzeigen  
-                if (players.length === 3) return position <= 2;
-                // Bei mehr als 3 Spielern alle 3 Plätze anzeigen
-                return position <= 3;
-              }).map((position) => (
+              {(() => {
+                // Bestimme welche Plätze basierend auf Spieleranzahl angezeigt werden
+                let positions: number[] = [];
+                if (players.length === 2) {
+                  positions = [1]; // Nur 1. Platz
+                } else if (players.length === 3) {
+                  positions = [2, 1]; // 2. und 1. Platz (vom letzten zum ersten)
+                } else {
+                  positions = [3, 2, 1]; // 3., 2. und 1. Platz (vom letzten zum ersten)
+                }
+                return positions;
+              })().map((position) => (
                 <Card key={position} className="relative">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg text-center">

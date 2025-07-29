@@ -60,16 +60,27 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
 
       if (tournamentError) throw tournamentError;
 
-      // Lade Spieler und deren Punkte
-      const { data: playerResults, error: playerError } = await supabase
+      // Lade Spieler und deren Punkte über tournament_players und Joins
+      const { data: tournamentPlayers, error: playerError } = await supabase
         .from('tournament_players')
         .select(`
-          players(id, name),
-          round_results(points)
+          players!inner(id, name)
         `)
         .eq('tournament_id', tournamentId);
 
       if (playerError) throw playerError;
+
+      // Lade alle Round Results für dieses Turnier
+      const { data: allRoundResults, error: resultsError } = await supabase
+        .from('round_results')
+        .select(`
+          points,
+          player_id,
+          rounds!inner(tournament_id)
+        `)
+        .eq('rounds.tournament_id', tournamentId);
+
+      if (resultsError) throw resultsError;
 
       // Lade Runden mit Ergebnissen
       const { data: rounds, error: roundsError } = await supabase
@@ -92,10 +103,14 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
       if (roundsError) throw roundsError;
 
       // Berechne Spieler-Gesamtpunkte
-      const playerTotals = playerResults?.reduce((acc: any, item: any) => {
+      const playerTotals = tournamentPlayers?.reduce((acc: any, item: any) => {
         const playerId = item.players.id;
         const playerName = item.players.name;
-        const totalPoints = item.round_results.reduce((sum: number, result: any) => sum + result.points, 0);
+        
+        // Berechne Gesamtpunkte für diesen Spieler
+        const totalPoints = allRoundResults
+          ?.filter(result => result.player_id === playerId)
+          ?.reduce((sum: number, result: any) => sum + result.points, 0) || 0;
         
         acc[playerId] = { id: playerId, name: playerName, totalPoints };
         return acc;
