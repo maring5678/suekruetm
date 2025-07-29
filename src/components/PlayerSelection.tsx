@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Play, Settings, BarChart3, Upload } from "lucide-react";
+import { Users, Play, Settings, BarChart3, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
@@ -10,6 +10,7 @@ import { PlayerManagement } from "./PlayerManagement";
 interface Player {
   id: string;
   name: string;
+  isFavorite?: boolean;
 }
 
 interface PlayerSelectionProps {
@@ -21,12 +22,14 @@ interface PlayerSelectionProps {
 export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelImport }: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showManagement, setShowManagement] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadPlayers();
+    loadFavorites();
   }, []);
 
   const loadPlayers = async () => {
@@ -47,6 +50,45 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadFavorites = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('player_favorites')
+        .select('player_id');
+
+      if (error) throw error;
+      setFavorites(data?.map(f => f.player_id) || []);
+    } catch (error) {
+      console.error('Fehler beim Laden der Favoriten:', error);
+    }
+  };
+
+  const toggleFavorite = async (playerId: string) => {
+    try {
+      const isFavorite = favorites.includes(playerId);
+      
+      if (isFavorite) {
+        await supabase
+          .from('player_favorites')
+          .delete()
+          .eq('player_id', playerId);
+        setFavorites(prev => prev.filter(id => id !== playerId));
+      } else {
+        await supabase
+          .from('player_favorites')
+          .insert({ player_id: playerId });
+        setFavorites(prev => [...prev, playerId]);
+      }
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der Favoriten:', error);
+      toast({
+        title: "Fehler",
+        description: "Favorit konnte nicht aktualisiert werden.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -157,32 +199,60 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {availablePlayers.map((player) => (
-                      <Button
-                        key={player.id}
-                        variant={isSelected(player.id) ? "default" : "outline"}
-                        className={`
-                          h-auto p-6 text-left justify-center transition-all duration-300 transform hover:scale-105
-                          ${isSelected(player.id) 
-                            ? "button-glow bg-primary text-primary-foreground" 
-                            : "hover:bg-primary/5 hover:border-primary/30"
-                          }
-                        `}
-                        onClick={() => togglePlayer(player)}
-                      >
-                        <div className="text-center">
-                          <div className={`
-                            w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center font-bold text-lg
+                    {[
+                      // Favoriten zuerst
+                      ...availablePlayers
+                        .filter(player => favorites.includes(player.id))
+                        .sort((a, b) => a.name.localeCompare(b.name)),
+                      // Dann die restlichen Spieler
+                      ...availablePlayers
+                        .filter(player => !favorites.includes(player.id))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                    ].map((player) => (
+                      <div key={player.id} className="relative">
+                        <Button
+                          variant={isSelected(player.id) ? "default" : "outline"}
+                          className={`
+                            h-auto p-6 text-left justify-center transition-all duration-300 transform hover:scale-105 w-full
                             ${isSelected(player.id) 
-                              ? "bg-primary-foreground/20 text-primary-foreground" 
-                              : "bg-primary/10 text-primary"
+                              ? "button-glow bg-primary text-primary-foreground" 
+                              : "hover:bg-primary/5 hover:border-primary/30"
                             }
-                          `}>
-                            {player.name.charAt(0).toUpperCase()}
+                            ${favorites.includes(player.id) ? "border-2 border-warning/50" : ""}
+                          `}
+                          onClick={() => togglePlayer(player)}
+                        >
+                          <div className="text-center">
+                            <div className={`
+                              w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center font-bold text-lg
+                              ${isSelected(player.id) 
+                                ? "bg-primary-foreground/20 text-primary-foreground" 
+                                : "bg-primary/10 text-primary"
+                              }
+                            `}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium">{player.name}</span>
                           </div>
-                          <span className="font-medium">{player.name}</span>
-                        </div>
-                      </Button>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-1 right-1 w-6 h-6 p-0 hover:bg-warning/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(player.id);
+                          }}
+                        >
+                          <Star 
+                            className={`h-3 w-3 ${
+                              favorites.includes(player.id) 
+                                ? "fill-warning text-warning" 
+                                : "text-muted-foreground hover:text-warning"
+                            }`} 
+                          />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </CardContent>
@@ -214,7 +284,7 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
               )}
 
               {/* Action Buttons */}
-              <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowStatistics}>
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-info/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
@@ -231,23 +301,6 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onExcelIm
                   </CardContent>
                 </Card>
 
-                {onExcelImport && (
-                  <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onExcelImport}>
-                    <CardContent className="p-8 text-center">
-                      <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                        <Upload className="h-8 w-8 text-warning" />
-                      </div>
-                      <h3 className="text-xl font-semibold mb-2">Excel Import</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Historische Daten importieren
-                      </p>
-                      <Button variant="outline" className="w-full group-hover:bg-warning/10">
-                        <Upload className="h-4 w-4 mr-2" />
-                        Daten importieren
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
 
                 <Card className={`
                   card-elevated overflow-hidden transition-all duration-300 cursor-pointer group

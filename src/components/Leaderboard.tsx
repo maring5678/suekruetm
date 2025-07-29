@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, Plus } from "lucide-react";
+import { Trophy, Medal, Award, Plus, User } from "lucide-react";
 
 interface Player {
   id: string;
@@ -24,13 +24,15 @@ interface LeaderboardProps {
   currentRound: number;
   onNextRound: () => void;
   onEndTournament: () => void;
+  onPlayerClick?: (playerId: string, playerName: string) => void;
 }
 
 export const Leaderboard = ({ 
   playerScores, 
   currentRound,
   onNextRound, 
-  onEndTournament
+  onEndTournament,
+  onPlayerClick
 }: LeaderboardProps) => {
   const sortedScores = [...playerScores].sort((a, b) => b.totalPoints - a.totalPoints);
 
@@ -65,17 +67,29 @@ export const Leaderboard = ({
           <CardContent>
             <div className="space-y-4">
               {sortedScores.map((score, index) => (
-                <Card key={score.player.id} className={`${index < 3 ? 'border-2' : ''} ${
-                  index === 0 ? 'border-tournament-gold' : 
-                  index === 1 ? 'border-tournament-silver' : 
-                  index === 2 ? 'border-tournament-bronze' : ''
-                }`}>
+                <Card 
+                  key={score.player.id} 
+                  className={`
+                    ${index < 3 ? 'border-2' : ''} 
+                    ${index === 0 ? 'border-tournament-gold' : 
+                      index === 1 ? 'border-tournament-silver' : 
+                      index === 2 ? 'border-tournament-bronze' : ''
+                    }
+                    ${onPlayerClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200' : ''}
+                  `}
+                  onClick={() => onPlayerClick?.(score.player.id, score.player.name)}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {getRankIcon(index + 1)}
                         <div>
-                          <h3 className="font-semibold text-lg">{score.player.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg">{score.player.name}</h3>
+                            {onPlayerClick && (
+                              <User className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
                           <Badge variant={getRankBadgeVariant(index + 1)}>
                             {score.totalPoints} Punkte
                           </Badge>
@@ -95,6 +109,42 @@ export const Leaderboard = ({
                   </CardContent>
                 </Card>
               ))}
+              
+              {/* Vollständige Rangliste für alle Spieler */}
+              {playerScores.length > sortedScores.length && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Vollständige Rangliste</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {playerScores
+                        .sort((a, b) => b.totalPoints - a.totalPoints)
+                        .map((score, index) => (
+                          <div 
+                            key={score.player.id} 
+                            className={`
+                              flex items-center justify-between p-3 rounded-lg border
+                              ${onPlayerClick ? 'cursor-pointer hover:bg-accent/5' : ''}
+                            `}
+                            onClick={() => onPlayerClick?.(score.player.id, score.player.name)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center text-sm font-bold">
+                                {index + 1}
+                              </div>
+                              <span className="font-medium">{score.player.name}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold">{score.totalPoints}</span>
+                              <span className="text-muted-foreground ml-1">Punkte</span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </CardContent>
         </Card>

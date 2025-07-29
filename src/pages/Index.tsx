@@ -6,6 +6,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { TournamentComplete } from "@/components/TournamentComplete";
 import { Statistics } from "@/components/Statistics";
 import { ExcelImport } from "@/components/ExcelImport";
+import { PlayerDetail } from "@/components/PlayerDetail";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,7 +26,7 @@ interface PlayerScore {
   }[];
 }
 
-type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import";
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -34,6 +35,8 @@ const Index = () => {
   const [playerScores, setPlayerScores] = useState<PlayerScore[]>([]);
   const [previousCreators, setPreviousCreators] = useState<string[]>([]); // Wird nicht mehr verwendet
   const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleStartTournament = async (players: Player[]) => {
@@ -309,9 +312,26 @@ const Index = () => {
     setGameState("round-input");
   };
 
+  const handlePlayerClick = (playerId: string, playerName: string) => {
+    setSelectedPlayerId(playerId);
+    setSelectedPlayerName(playerName);
+    setGameState("player-detail");
+  };
+
+  const handleBackFromPlayerDetail = () => {
+    setSelectedPlayerId(null);
+    setSelectedPlayerName(null);
+    // Zurück zum vorherigen Zustand - je nach Kontext
+    if (currentTournamentId) {
+      setGameState("leaderboard");
+    } else {
+      setGameState("statistics");
+    }
+  };
+
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onExcelImport={handleExcelImport} />;
+      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} />;
     
     case "player-edit":
       return (
@@ -339,6 +359,7 @@ const Index = () => {
           currentRound={currentRound}
           onNextRound={handleNextRound}
           onEndTournament={handleEndTournament}
+          onPlayerClick={handlePlayerClick}
         />
       );
     
@@ -360,6 +381,15 @@ const Index = () => {
           onBack={handleBackFromStatistics}
         />
       );
+
+    case "player-detail":
+      return selectedPlayerId && selectedPlayerName ? (
+        <PlayerDetail
+          playerId={selectedPlayerId}
+          playerName={selectedPlayerName}
+          onBack={handleBackFromPlayerDetail}
+        />
+      ) : null;
     
     default:
       return null;

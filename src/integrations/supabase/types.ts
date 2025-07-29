@@ -38,6 +38,32 @@ export type Database = {
         }
         Relationships: []
       }
+      player_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          player_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          player_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_favorites_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           created_at: string

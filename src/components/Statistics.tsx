@@ -354,12 +354,13 @@ export function Statistics({ onBack }: StatisticsProps) {
                       <div 
                         key={player.playerId} 
                         className={`
-                          group relative overflow-hidden rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md
+                          group relative overflow-hidden rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-md cursor-pointer
                           ${index < 3 
                             ? 'bg-gradient-to-r from-accent/20 via-accent/10 to-background border-2 border-accent/30' 
                             : 'bg-card border hover:border-accent/50'
                           }
                         `}
+                        onClick={() => {/* TODO: Implementiere Player Detail View */}}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
