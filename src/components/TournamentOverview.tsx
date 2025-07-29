@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Play, Clock, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Trophy, Calendar, Users, Play, Eye, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { TournamentList } from "./TournamentList";
 
 interface Tournament {
   id: string;
@@ -12,63 +13,119 @@ interface Tournament {
   created_at: string;
   completed_at: string | null;
   player_count: number;
-  round_count: number;
-  latest_round: number;
+  rounds_count: number;
+}
+
+interface TournamentDetail {
+  id: string;
+  name: string;
+  created_at: string;
+  completed_at: string | null;
+  players: Array<{ id: string; name: string; totalPoints: number }>;
+  rounds: Array<{
+    id: string;
+    round_number: number;
+    track_name: string;
+    track_number: string;
+    creator: string;
+    results: Array<{ player_name: string; position: number; points: number }>;
+  }>;
 }
 
 interface TournamentOverviewProps {
   onBack: () => void;
-  onJoinTournament: (tournamentId: string) => void;
+  currentTournamentId: string | null;
 }
 
-export const TournamentOverview = ({ onBack, onJoinTournament }: TournamentOverviewProps) => {
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [loading, setLoading] = useState(true);
+export const TournamentOverview = ({ onBack, currentTournamentId }: TournamentOverviewProps) => {
+  const [view, setView] = useState<'list' | 'detail'>('list');
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
+  const [tournamentDetail, setTournamentDetail] = useState<TournamentDetail | null>(null);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadTournaments();
-  }, []);
-
-  const loadTournaments = async () => {
+  const handleSelectTournament = async (tournamentId: string) => {
     try {
       setLoading(true);
+      setSelectedTournamentId(tournamentId);
 
-      // Lade alle Turniere mit Spieler- und Rundenzahl
-      const { data: tournamentsData, error: tournamentsError } = await supabase
+      // Lade Turnier-Details
+      const { data: tournament, error: tournamentError } = await supabase
         .from('tournaments')
+        .select('*')
+        .eq('id', tournamentId)
+        .single();
+
+      if (tournamentError) throw tournamentError;
+
+      // Lade Spieler und deren Punkte
+      const { data: playerResults, error: playerError } = await supabase
+        .from('tournament_players')
+        .select(`
+          players(id, name),
+          round_results(points)
+        `)
+        .eq('tournament_id', tournamentId);
+
+      if (playerError) throw playerError;
+
+      // Lade Runden mit Ergebnissen
+      const { data: rounds, error: roundsError } = await supabase
+        .from('rounds')
         .select(`
           id,
-          name,
-          created_at,
-          completed_at,
-          tournament_players!inner(id),
-          rounds!inner(id, round_number)
+          round_number,
+          track_name,
+          track_number,
+          creator,
+          round_results(
+            position,
+            points,
+            players(name)
+          )
         `)
-        .order('created_at', { ascending: false });
+        .eq('tournament_id', tournamentId)
+        .order('round_number');
 
-      if (tournamentsError) throw tournamentsError;
+      if (roundsError) throw roundsError;
 
-      // Verarbeite die Daten
-      const processedTournaments: Tournament[] = tournamentsData?.map(tournament => ({
+      // Berechne Spieler-Gesamtpunkte
+      const playerTotals = playerResults?.reduce((acc: any, item: any) => {
+        const playerId = item.players.id;
+        const playerName = item.players.name;
+        const totalPoints = item.round_results.reduce((sum: number, result: any) => sum + result.points, 0);
+        
+        acc[playerId] = { id: playerId, name: playerName, totalPoints };
+        return acc;
+      }, {}) || {};
+
+      const tournamentDetailData: TournamentDetail = {
         id: tournament.id,
         name: tournament.name,
         created_at: tournament.created_at,
         completed_at: tournament.completed_at,
-        player_count: tournament.tournament_players?.length || 0,
-        round_count: tournament.rounds?.length || 0,
-        latest_round: tournament.rounds?.length > 0 
-          ? Math.max(...tournament.rounds.map(r => r.round_number))
-          : 0
-      })) || [];
+        players: (Object.values(playerTotals) as Array<{ id: string; name: string; totalPoints: number }>).sort((a, b) => b.totalPoints - a.totalPoints),
+        rounds: rounds?.map(round => ({
+          id: round.id,
+          round_number: round.round_number,
+          track_name: round.track_name,
+          track_number: round.track_number,
+          creator: round.creator,
+          results: round.round_results.map((result: any) => ({
+            player_name: result.players.name,
+            position: result.position,
+            points: result.points
+          })).sort((a: any, b: any) => a.position - b.position)
+        })) || []
+      };
 
-      setTournaments(processedTournaments);
-
+      setTournamentDetail(tournamentDetailData);
+      setView('detail');
     } catch (error) {
-      console.error('Fehler beim Laden der Turniere:', error);
+      console.error('Fehler beim Laden der Turnier-Details:', error);
       toast({
         title: "Fehler",
-        description: "Turniere konnten nicht geladen werden",
+        description: "Turnier-Details konnten nicht geladen werden.",
         variant: "destructive"
       });
     } finally {
@@ -76,26 +133,40 @@ export const TournamentOverview = ({ onBack, onJoinTournament }: TournamentOverv
     }
   };
 
-  const activeTournaments = tournaments.filter(t => !t.completed_at);
-  const completedTournaments = tournaments.filter(t => t.completed_at);
+  const handleBackToList = () => {
+    setView('list');
+    setSelectedTournamentId(null);
+    setTournamentDetail(null);
+  };
+
+  if (view === 'list') {
+    return (
+      <TournamentList 
+        onBack={onBack}
+        onSelectTournament={handleSelectTournament}
+        currentTournamentId={currentTournamentId}
+      />
+    );
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <Button onClick={onBack} variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Zurück
-            </Button>
-            <h1 className="text-3xl font-bold">Turnierübersicht</h1>
-          </div>
-          <div className="flex items-center justify-center min-h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Lade Turniere...</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Lade Turnier-Details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tournamentDetail) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Turnier nicht gefunden</p>
+          <Button onClick={handleBackToList} className="mt-4">Zurück zur Liste</Button>
         </div>
       </div>
     );
@@ -106,135 +177,150 @@ export const TournamentOverview = ({ onBack, onJoinTournament }: TournamentOverv
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm">
+          <Button onClick={handleBackToList} variant="outline" size="sm" className="shadow-sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück
+            Zurück zur Liste
           </Button>
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Turnierübersicht
+              {tournamentDetail.name}
             </h1>
-            <p className="text-muted-foreground text-lg">Laufende und abgeschlossene Turniere</p>
+            <p className="text-muted-foreground text-lg">
+              Turnier-Details • {new Date(tournamentDetail.created_at).toLocaleDateString('de-DE')}
+            </p>
+          </div>
+          <div className="ml-auto">
+            <Badge variant={tournamentDetail.completed_at ? "outline" : "default"} className="text-lg px-3 py-1">
+              {tournamentDetail.completed_at ? "Abgeschlossen" : "Laufend"}
+            </Badge>
           </div>
         </div>
 
-        {/* Aktive Turniere */}
-        {activeTournaments.length > 0 && (
+        {/* Tournament Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Clock className="h-5 w-5 text-warning" />
-                Laufende Turniere ({activeTournaments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {activeTournaments.map((tournament) => (
-                  <Card 
-                    key={tournament.id} 
-                    className="border-2 border-warning/30 hover:border-warning/50 transition-all duration-200 hover:shadow-lg cursor-pointer"
-                    onClick={() => onJoinTournament(tournament.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div>
-                          <h3 className="font-semibold text-lg">{tournament.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(tournament.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            <span>{tournament.player_count} Spieler</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Trophy className="h-4 w-4" />
-                            <span>{tournament.round_count} Runden</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="border-warning text-warning">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Laufend
-                          </Badge>
-                          <Button size="sm" variant="outline">
-                            <Play className="h-4 w-4 mr-1" />
-                            Beitreten
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-primary">{tournamentDetail.players.length}</div>
+              <p className="text-sm text-muted-foreground">Spieler</p>
             </CardContent>
           </Card>
-        )}
+          <Card className="shadow-lg">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-secondary">{tournamentDetail.rounds.length}</div>
+              <p className="text-sm text-muted-foreground">Runden</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-lg">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-accent">
+                {tournamentDetail.completed_at 
+                  ? new Date(tournamentDetail.completed_at).toLocaleDateString('de-DE')
+                  : "Läuft noch"
+                }
+              </div>
+              <p className="text-sm text-muted-foreground">Status</p>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Abgeschlossene Turniere */}
+        {/* Final Standings */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Trophy className="h-5 w-5 text-success" />
-              Abgeschlossene Turniere ({completedTournaments.length})
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Endstand
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {completedTournaments.length === 0 ? (
-              <div className="text-center py-12">
-                <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">
-                  Noch keine abgeschlossenen Turniere
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Beende dein erstes Turnier, um es hier zu sehen
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {completedTournaments.map((tournament) => (
-                  <div 
-                    key={tournament.id} 
-                    className="flex items-center justify-between border rounded-lg p-4 hover:bg-accent/5 transition-colors"
-                  >
-                    <div>
-                      <h3 className="font-semibold">{tournament.name}</h3>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{new Date(tournament.created_at).toLocaleDateString()}</span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {tournament.player_count} Spieler
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Trophy className="h-3 w-3" />
-                          {tournament.round_count} Runden
-                        </span>
-                      </div>
+            <div className="space-y-3">
+              {tournamentDetail.players.map((player, index) => (
+                <div 
+                  key={player.id} 
+                  className={`
+                    flex items-center justify-between p-4 rounded-lg border
+                    ${index < 3 ? 'border-2' : ''} 
+                    ${index === 0 ? 'border-tournament-gold bg-tournament-gold/10' : 
+                      index === 1 ? 'border-tournament-silver bg-tournament-silver/10' : 
+                      index === 2 ? 'border-tournament-bronze bg-tournament-bronze/10' : ''
+                    }
+                  `}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`
+                      w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg
+                      ${index === 0 ? 'bg-tournament-gold text-black' :
+                        index === 1 ? 'bg-tournament-silver text-black' :
+                        index === 2 ? 'bg-tournament-bronze text-white' :
+                        'bg-muted text-muted-foreground'
+                      }
+                    `}>
+                      {index + 1}
                     </div>
-                    <Badge variant="default" className="bg-success text-success-foreground">
-                      Abgeschlossen
-                    </Badge>
+                    <div>
+                      <h3 className="font-semibold text-lg">{player.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {index === 0 ? '🏆 Sieger' : 
+                         index === 1 ? '🥈 Zweiter Platz' :
+                         index === 2 ? '🥉 Dritter Platz' : 
+                         `${index + 1}. Platz`}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-primary">{player.totalPoints}</div>
+                    <div className="text-sm text-muted-foreground">Punkte</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        {tournaments.length === 0 && (
-          <Card className="shadow-lg">
-            <CardContent className="p-12 text-center">
-              <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
-              <h3 className="text-xl font-semibold mb-4">Noch keine Turniere</h3>
-              <p className="text-muted-foreground">
-                Erstelle dein erstes Turnier, um loszulegen
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Rounds Details */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Rundenverlauf
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {tournamentDetail.rounds.map((round) => (
+                <div key={round.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-lg">Runde {round.round_number}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {round.track_name} • Erstellt von {round.creator}
+                      </p>
+                    </div>
+                    <Badge variant="outline">Track #{round.track_number}</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {round.results.map((result, index) => (
+                      <div 
+                        key={index}
+                        className={`
+                          p-3 rounded-lg border text-center
+                          ${index === 0 ? 'border-tournament-gold bg-tournament-gold/10' :
+                            index === 1 ? 'border-tournament-silver bg-tournament-silver/10' :
+                            index === 2 ? 'border-tournament-bronze bg-tournament-bronze/10' :
+                            'border-muted'
+                          }
+                        `}
+                      >
+                        <div className="text-lg font-bold">{result.position}. Platz</div>
+                        <div className="font-medium">{result.player_name}</div>
+                        <div className="text-sm text-muted-foreground">{result.points} Punkte</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
