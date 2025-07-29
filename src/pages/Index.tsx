@@ -17,6 +17,13 @@ interface Player {
 }
 
 interface PlayerScore {
+  playerId: string;
+  playerName: string;
+  totalPoints: number;
+  roundScores: number[];
+}
+
+interface PlayerScoreOld {
   player: Player;
   totalPoints: number;
   roundResults: {
@@ -33,7 +40,7 @@ const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
-  const [playerScores, setPlayerScores] = useState<PlayerScore[]>([]);
+  const [playerScores, setPlayerScores] = useState<{ [key: string]: PlayerScore }>({});
   const [previousCreators, setPreviousCreators] = useState<string[]>([]); // Wird nicht mehr verwendet
   const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -79,11 +86,16 @@ const Index = () => {
 
       setCurrentTournamentId(tournament.id);
       setSelectedPlayers(players);
-      setPlayerScores(players.map(player => ({
-        player,
-        totalPoints: 0,
-        roundResults: []
-      })));
+      const initialScores: { [key: string]: PlayerScore } = {};
+      players.forEach(player => {
+        initialScores[player.id] = {
+          playerId: player.id,
+          playerName: player.name,
+          totalPoints: 0,
+          roundScores: []
+        };
+      });
+      setPlayerScores(initialScores);
       setGameState("round-input");
       
       toast({
@@ -166,25 +178,22 @@ const Index = () => {
         });
       }
       
-      setPlayerScores(prev => prev.map(playerScore => {
-        const rankIndex = rankings.findIndex(p => p.id === playerScore.player.id);
-        const position = rankIndex + 1;
-        const points = position <= 3 ? pointsMap[position as keyof typeof pointsMap] : 0;
-        
-        return {
-          ...playerScore,
-          totalPoints: playerScore.totalPoints + points,
-          roundResults: [
-            ...playerScore.roundResults,
-            {
-              round: currentRound,
-              track: trackName,
-              position,
-              points
-            }
-          ]
-        };
-      }));
+      setPlayerScores(prev => {
+        const newScores = { ...prev };
+        rankings.forEach((player, index) => {
+          const position = index + 1;
+          const points = position <= 3 ? pointsMap[position as keyof typeof pointsMap] : 0;
+          
+          if (newScores[player.id]) {
+            newScores[player.id] = {
+              ...newScores[player.id],
+              totalPoints: newScores[player.id].totalPoints + points,
+              roundScores: [...newScores[player.id].roundScores, points]
+            };
+          }
+        });
+        return newScores;
+      });
       
       setCurrentRound(prev => prev + 1);
       setGameState("leaderboard");
@@ -237,7 +246,7 @@ const Index = () => {
     setGameState("player-selection");
     setSelectedPlayers([]);
     setCurrentRound(1);
-    setPlayerScores([]);
+    setPlayerScores({});
     setPreviousCreators([]);
     setCurrentTournamentId(null);
   };
@@ -250,7 +259,7 @@ const Index = () => {
     setGameState("player-selection");
   };
 
-  const handleShowTournaments = () => {
+  const handleTournamentOverview = () => {
     setGameState("tournament-overview");
   };
 
@@ -293,25 +302,112 @@ const Index = () => {
     }
   };
 
+  const handleContinueTournament = async (tournamentId: string) => {
+    try {
+      // Lade Turnier-Daten
+      const { data: tournament, error: tournamentError } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('id', tournamentId)
+        .single();
+
+      if (tournamentError) throw tournamentError;
+
+      // Lade Spieler des Turniers
+      const { data: tournamentPlayers, error: playersError } = await supabase
+        .from('tournament_players')
+        .select('players(*)')
+        .eq('tournament_id', tournamentId);
+
+      if (playersError) throw playersError;
+
+      // Lade aktuelle Runde
+      const { data: rounds, error: roundsError } = await supabase
+        .from('rounds')
+        .select('round_number')
+        .eq('tournament_id', tournamentId)
+        .order('round_number', { ascending: false })
+        .limit(1);
+
+      if (roundsError) throw roundsError;
+
+      // Lade Spieler-Scores
+      const { data: results, error: resultsError } = await supabase
+        .from('round_results')
+        .select(`
+          player_id,
+          points,
+          rounds!inner(tournament_id)
+        `)
+        .eq('rounds.tournament_id', tournamentId);
+
+      if (resultsError) throw resultsError;
+
+      // Berechne Scores
+      const scores: { [key: string]: PlayerScore } = {};
+      tournamentPlayers?.forEach(tp => {
+        const player = tp.players;
+        if (player) {
+          scores[player.id] = {
+            playerId: player.id,
+            playerName: player.name,
+            totalPoints: 0,
+            roundScores: []
+          };
+        }
+      });
+
+      results?.forEach(result => {
+        if (scores[result.player_id]) {
+          scores[result.player_id].totalPoints += result.points;
+        }
+      });
+
+      // Setze Zustand
+      setCurrentTournamentId(tournamentId);
+      setSelectedPlayers(tournamentPlayers?.map(tp => tp.players).filter(Boolean) || []);
+      setPlayerScores(scores);
+      setCurrentRound((rounds?.[0]?.round_number || 0) + 1);
+      
+      if (tournament.completed_at) {
+        setGameState('tournament-complete');
+      } else {
+        setGameState('round-input');
+      }
+
+      toast({
+        title: "Turnier geladen",
+        description: `${tournament.name} wurde erfolgreich geladen.`
+      });
+    } catch (error) {
+      console.error('Fehler beim Laden des Turniers:', error);
+      toast({
+        title: "Fehler",
+        description: "Turnier konnte nicht geladen werden.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handlePlayersConfirmed = (newPlayers: Player[]) => {
     setSelectedPlayers(newPlayers);
     
     // Aktualisiere playerScores: Neue Spieler hinzufügen, entfernte behalten ihre Punkte
     setPlayerScores(prevScores => {
-      const newScores: PlayerScore[] = [];
+      const newScores: { [key: string]: PlayerScore } = {};
       
       // Bestehende Spieler beibehalten
       newPlayers.forEach(player => {
-        const existingScore = prevScores.find(score => score.player.id === player.id);
-        if (existingScore) {
-          newScores.push(existingScore);
+        if (prevScores[player.id]) {
+          newScores[player.id] = prevScores[player.id];
         } else {
           // Neuer Spieler
-          newScores.push({
-            player,
+          newScores[player.id] = {
+            playerId: player.id,
+            playerName: player.name,
             totalPoints: 0,
-            roundResults: []
-          });
+            roundScores: []
+          };
         }
       });
       
@@ -338,9 +434,31 @@ const Index = () => {
     }
   };
 
+  // Convert playerScores object to array format for components that expect array
+  const playerScoresArray = Object.values(playerScores).map(score => ({
+    player: { id: score.playerId, name: score.playerName },
+    totalPoints: score.totalPoints,
+    roundResults: score.roundScores.map((points, index) => ({
+      round: index + 1,
+      track: `Track ${index + 1}`,
+      position: 1, // Simplified for now
+      points
+    }))
+  }));
+
   switch (gameState) {
     case "player-selection":
-      return <PlayerSelection onStartTournament={handleStartTournament} onShowStatistics={handleShowStatistics} onShowTournaments={handleShowTournaments} />;
+      return (
+        <PlayerSelection 
+          onPlayersSelected={handleStartTournament}
+          onShowStatistics={handleShowStatistics}
+          onShowExcelImport={handleExcelImport}
+          onTournamentOverview={handleTournamentOverview}
+          onJoinTournament={handleContinueTournament}
+          isCurrentTournament={!!currentTournamentId}
+          currentTournamentId={currentTournamentId}
+        />
+      );
     
     case "player-edit":
       return (
@@ -364,7 +482,7 @@ const Index = () => {
     case "leaderboard":
       return (
         <Leaderboard
-          playerScores={playerScores}
+          playerScores={playerScoresArray}
           currentRound={currentRound}
           onNextRound={handleNextRound}
           onEndTournament={handleEndTournament}
@@ -375,7 +493,7 @@ const Index = () => {
     case "tournament-complete":
       return (
         <TournamentComplete
-          playerScores={playerScores}
+          playerScores={playerScoresArray}
           onNewTournament={handleNewTournament}
         />
       );
@@ -401,7 +519,13 @@ const Index = () => {
       ) : null;
 
     case "tournament-overview":
-      return <TournamentOverview onBack={handleBackFromTournaments} currentTournamentId={currentTournamentId} />;
+      return (
+        <TournamentOverview 
+          onBack={() => setGameState('player-selection')}
+          currentTournamentId={currentTournamentId}
+          onContinueTournament={handleContinueTournament}
+        />
+      );
     
     default:
       return null;

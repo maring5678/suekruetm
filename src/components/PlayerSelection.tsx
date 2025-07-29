@@ -6,6 +6,7 @@ import { Users, Play, Settings, BarChart3, Star, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PlayerManagement } from "./PlayerManagement";
+import { LiveTicker } from "./LiveTicker";
 
 interface Player {
   id: string;
@@ -14,13 +15,24 @@ interface Player {
 }
 
 interface PlayerSelectionProps {
-  onStartTournament: (selectedPlayers: Player[]) => void;
+  onPlayersSelected: (players: Player[]) => void;
   onShowStatistics: () => void;
-  onShowTournaments: () => void;
-  onExcelImport?: () => void;
+  onShowExcelImport: () => void;
+  onTournamentOverview: () => void;
+  onJoinTournament: (tournamentId: string) => void;
+  isCurrentTournament: boolean;
+  currentTournamentId: string | null;
 }
 
-export const PlayerSelection = ({ onStartTournament, onShowStatistics, onShowTournaments, onExcelImport }: PlayerSelectionProps) => {
+export const PlayerSelection = ({ 
+  onPlayersSelected, 
+  onShowStatistics, 
+  onShowExcelImport, 
+  onTournamentOverview,
+  onJoinTournament,
+  isCurrentTournament,
+  currentTournamentId
+}: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -106,7 +118,7 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onShowTou
 
   const handleStartTournament = () => {
     if (selectedPlayers.length >= 2) {
-      onStartTournament(selectedPlayers);
+      onPlayersSelected(selectedPlayers);
     }
   };
 
@@ -140,6 +152,12 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onShowTou
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/20 rounded-full blur-3xl opacity-30"></div>
       
       <div className="relative z-10 max-w-6xl mx-auto">
+        {/* Live Ticker */}
+        <LiveTicker 
+          onJoinTournament={onJoinTournament}
+          currentTournamentId={currentTournamentId}
+        />
+
         {/* Header */}
         <div className="text-center mb-12">
           <div className="absolute top-6 right-6">
@@ -302,7 +320,7 @@ export const PlayerSelection = ({ onStartTournament, onShowStatistics, onShowTou
                   </CardContent>
                 </Card>
 
-                <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowTournaments}>
+                <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onTournamentOverview}>
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                       <Trophy className="h-8 w-8 text-secondary" />

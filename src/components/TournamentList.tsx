@@ -19,9 +19,10 @@ interface TournamentListProps {
   onBack: () => void;
   onSelectTournament: (tournamentId: string) => void;
   currentTournamentId: string | null;
+  onContinueTournament: (tournamentId: string) => void;
 }
 
-export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId }: TournamentListProps) => {
+export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId, onContinueTournament }: TournamentListProps) => {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -34,28 +35,38 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
     try {
       setLoading(true);
 
+      // Lade Turniere mit separaten Abfragen für Counts
       const { data: tournamentsData, error: tournamentsError } = await supabase
         .from('tournaments')
-        .select(`
-          id,
-          name,
-          created_at,
-          completed_at,
-          tournament_players(count),
-          rounds(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (tournamentsError) throw tournamentsError;
 
-      const tournamentsWithCounts = tournamentsData?.map(tournament => ({
-        id: tournament.id,
-        name: tournament.name,
-        created_at: tournament.created_at,
-        completed_at: tournament.completed_at,
-        player_count: tournament.tournament_players?.[0]?.count || 0,
-        rounds_count: tournament.rounds?.[0]?.count || 0
-      })) || [];
+      // Lade Spieler- und Runden-Counts für jedes Turnier
+      const tournamentsWithCounts = await Promise.all(
+        (tournamentsData || []).map(async (tournament) => {
+          const [playersResult, roundsResult] = await Promise.all([
+            supabase
+              .from('tournament_players')
+              .select('id', { count: 'exact' })
+              .eq('tournament_id', tournament.id),
+            supabase
+              .from('rounds')
+              .select('id', { count: 'exact' })
+              .eq('tournament_id', tournament.id)
+          ]);
+
+          return {
+            id: tournament.id,
+            name: tournament.name,
+            created_at: tournament.created_at,
+            completed_at: tournament.completed_at,
+            player_count: playersResult.count || 0,
+            rounds_count: roundsResult.count || 0
+          };
+        })
+      );
 
       setTournaments(tournamentsWithCounts);
     } catch (error) {
@@ -182,6 +193,18 @@ export const TournamentList = ({ onBack, onSelectTournament, currentTournamentId
                         >
                           Details anzeigen
                         </Button>
+                        {!tournament.completed_at && (
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onContinueTournament(tournament.id);
+                            }}
+                          >
+                            Fortsetzen
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
