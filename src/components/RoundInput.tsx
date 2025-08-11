@@ -433,19 +433,44 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
               ))}
             </div>
 
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-between items-center pt-4">
               <Button
-                onClick={handleRoundComplete}
-                disabled={
-                  players.length === 2 ? selectedRankings.length < 1 || !selectedRankings[0] :
-                  players.length === 3 ? selectedRankings.length < 2 || !selectedRankings.slice(0, 2).every(p => p) :
-                  selectedRankings.length < 3 || !selectedRankings.slice(0, 3).every(p => p)
-                }
+                onClick={() => setShowRanking(false)}
+                variant="outline"
                 size="lg"
-                className="px-8"
               >
-                Runde abschließen
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Zurück
               </Button>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    const finalCreator = isCustomCreator ? customCreator : creator;
+                    const trackName = `${finalCreator} #${trackNumber}`;
+                    onRoundComplete(finalCreator, trackNumber, trackName, []);
+                  }}
+                  variant="outline"
+                  size="lg"
+                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Turnier beenden
+                </Button>
+                
+                <Button
+                  onClick={handleRoundComplete}
+                  disabled={
+                    players.length === 2 ? selectedRankings.length < 1 || !selectedRankings[0] :
+                    players.length === 3 ? selectedRankings.length < 2 || !selectedRankings.slice(0, 2).every(p => p) :
+                    selectedRankings.length < 3 || !selectedRankings.slice(0, 3).every(p => p)
+                  }
+                  size="lg"
+                  className="px-8"
+                >
+                  Runde abschließen
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
