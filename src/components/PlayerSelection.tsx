@@ -23,6 +23,7 @@ interface PlayerSelectionProps {
   isCurrentTournament: boolean;
   currentTournamentId: string | null;
   onBack?: () => void;
+  onShowLiveRanking?: () => void;
 }
 
 export const PlayerSelection = ({ 
@@ -33,7 +34,8 @@ export const PlayerSelection = ({
   onJoinTournament,
   isCurrentTournament,
   currentTournamentId,
-  onBack
+  onBack,
+  onShowLiveRanking
 }: PlayerSelectionProps) => {
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
@@ -319,7 +321,7 @@ export const PlayerSelection = ({
               )}
 
               {/* Action Buttons */}
-              <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              <div className="grid md:grid-cols-4 gap-6 max-w-8xl mx-auto">
                 <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowStatistics}>
                   <CardContent className="p-8 text-center">
                     <div className="w-16 h-16 bg-info/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
@@ -352,6 +354,23 @@ export const PlayerSelection = ({
                   </CardContent>
                 </Card>
 
+                {onShowLiveRanking && (
+                  <Card className="card-elevated overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group" onClick={onShowLiveRanking}>
+                    <CardContent className="p-8 text-center">
+                      <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                        <Trophy className="h-8 w-8 text-green-500" />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2">Live Rankings</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Echtzeit-Ranglisten aller Turniere
+                      </p>
+                      <Button variant="outline" className="w-full group-hover:bg-green-500/10">
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Live Rankings
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Card className={`
                   card-elevated overflow-hidden transition-all duration-300 cursor-pointer group

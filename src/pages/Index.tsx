@@ -8,6 +8,7 @@ import { Statistics } from "@/components/Statistics";
 import { ExcelImport } from "@/components/ExcelImport";
 import { PlayerDetail } from "@/components/PlayerDetail";
 import { TournamentOverview } from "@/components/TournamentOverview";
+import { LiveRanking } from "@/components/LiveRanking";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,7 +35,7 @@ interface PlayerScoreOld {
   }[];
 }
 
-type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail" | "tournament-overview";
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail" | "tournament-overview" | "live-ranking";
 
 const Index = () => {
   const [gameState, setGameState] = useState<GameState>("player-selection");
@@ -267,6 +268,14 @@ const Index = () => {
     setGameState("player-selection");
   };
 
+  const handleShowLiveRanking = () => {
+    setGameState("live-ranking");
+  };
+
+  const handleBackFromLiveRanking = () => {
+    setGameState("player-selection");
+  };
+
   const handleExcelImport = () => {
     setGameState("excel-import");
   };
@@ -456,6 +465,15 @@ const Index = () => {
           onTournamentOverview={handleTournamentOverview}
           onJoinTournament={handleContinueTournament}
           isCurrentTournament={!!currentTournamentId}
+          currentTournamentId={currentTournamentId}
+          onShowLiveRanking={handleShowLiveRanking}
+        />
+      );
+    
+    case "live-ranking":
+      return (
+        <LiveRanking 
+          onBack={handleBackFromLiveRanking}
           currentTournamentId={currentTournamentId}
         />
       );
