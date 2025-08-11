@@ -146,13 +146,13 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
     );
 
   const handleRoundComplete = () => {
-    const requiredSelections = players.length === 2 ? 1 : players.length === 3 ? 2 : 3;
-    const validSelections = selectedRankings.slice(0, requiredSelections).filter(p => p);
+    // Alle Positionen müssen ausgefüllt sein
+    const validSelections = selectedRankings.filter(p => p);
     
-    if (validSelections.length === requiredSelections) {
+    if (validSelections.length === players.length) {
       const finalCreator = isCustomCreator ? customCreator : creator;
       const trackName = `${finalCreator} #${trackNumber}`;
-      onRoundComplete(finalCreator, trackNumber, trackName, validSelections);
+      onRoundComplete(finalCreator, trackNumber, trackName, selectedRankings);
     }
   };
 
@@ -394,14 +394,10 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
           <CardContent className="space-y-6">
             <div className="grid md:grid-cols-3 gap-6">
               {(() => {
-                // Bestimme welche Plätze basierend auf Spieleranzahl angezeigt werden
-                let positions: number[] = [];
-                if (players.length === 2) {
-                  positions = [1]; // Nur 1. Platz
-                } else if (players.length === 3) {
-                  positions = [2, 1]; // 2. und 1. Platz (vom letzten zum ersten)
-                } else {
-                  positions = [3, 2, 1]; // 3., 2. und 1. Platz (vom letzten zum ersten)
+                // Zeige alle Positionen von letztem bis ersten Platz
+                const positions: number[] = [];
+                for (let i = players.length; i >= 1; i--) {
+                  positions.push(i);
                 }
                 return positions;
               })().map((position) => (
@@ -460,11 +456,7 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
                 
                 <Button
                   onClick={handleRoundComplete}
-                  disabled={
-                    players.length === 2 ? selectedRankings.length < 1 || !selectedRankings[0] :
-                    players.length === 3 ? selectedRankings.length < 2 || !selectedRankings.slice(0, 2).every(p => p) :
-                    selectedRankings.length < 3 || !selectedRankings.slice(0, 3).every(p => p)
-                  }
+                  disabled={selectedRankings.filter(p => p).length !== players.length}
                   size="lg"
                   className="px-8"
                 >
