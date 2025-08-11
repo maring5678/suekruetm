@@ -300,43 +300,62 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Rundenverlauf
+              Rundendetails
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {tournamentDetail.rounds.map((round) => (
-                <div key={round.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold text-lg">Runde {round.round_number}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {round.track_name} • Erstellt von {round.creator}
-                      </p>
+              {tournamentDetail.rounds.map((round) => {
+                const topThree = round.results.slice(0, 3);
+                const winner = round.results[0];
+                
+                return (
+                  <div key={round.id} className="border rounded-lg p-4">
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-lg">
+                        Runde {round.round_number}: {winner?.player_name || 'Unbekannt'}
+                      </h4>
                     </div>
-                    <Badge variant="outline">Track #{round.track_number}</Badge>
+                    <div className="flex flex-wrap gap-2">
+                      {topThree.map((result, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            // Create modal content for round details
+                            const modalContent = `
+                              <div class="space-y-4">
+                                <h3 class="text-lg font-semibold">Runde ${round.round_number} - Komplette Rangliste</h3>
+                                <p class="text-sm text-muted-foreground">Ersteller: ${round.creator} • Nummer: ${round.track_number}</p>
+                                <div class="space-y-2">
+                                  ${round.results.map((r, i) => `
+                                    <div class="flex justify-between items-center p-2 rounded ${i < 3 ? 'bg-accent/20' : 'bg-muted/10'}">
+                                      <span>${r.position}. ${r.player_name}</span>
+                                      <span class="font-medium">${r.points} Punkte</span>
+                                    </div>
+                                  `).join('')}
+                                </div>
+                              </div>
+                            `;
+                            
+                            // Simple alert for now - could be enhanced with a proper modal
+                            const detailsText = round.results.map((r, i) => `${r.position}. ${r.player_name} (${r.points}P)`).join('\n');
+                            alert(`Runde ${round.round_number} - Komplette Rangliste\n\nErsteller: ${round.creator}\nNummer: ${round.track_number}\n\n${detailsText}`);
+                          }}
+                          className={`
+                            px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                            ${index === 0 ? 'bg-primary text-primary-foreground hover:bg-primary/90' :
+                              index === 1 ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90' :
+                              'bg-accent text-accent-foreground hover:bg-accent/90'
+                            }
+                          `}
+                        >
+                          {result.position}. {result.player_name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {round.results.map((result, index) => (
-                      <div 
-                        key={index}
-                        className={`
-                          p-3 rounded-lg border text-center
-                          ${index === 0 ? 'border-tournament-gold bg-tournament-gold/10' :
-                            index === 1 ? 'border-tournament-silver bg-tournament-silver/10' :
-                            index === 2 ? 'border-tournament-bronze bg-tournament-bronze/10' :
-                            'border-muted'
-                          }
-                        `}
-                      >
-                        <div className="text-lg font-bold">{result.position}. Platz</div>
-                        <div className="font-medium">{result.player_name}</div>
-                        <div className="text-sm text-muted-foreground">{result.points} Punkte</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
