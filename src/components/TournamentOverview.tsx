@@ -60,22 +60,13 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
 
       if (tournamentError) throw tournamentError;
 
-      // Lade Spieler und deren Punkte über tournament_players und Joins
-      const { data: tournamentPlayers, error: playerError } = await supabase
-        .from('tournament_players')
-        .select(`
-          players!inner(id, name)
-        `)
-        .eq('tournament_id', tournamentId);
-
-      if (playerError) throw playerError;
-
-      // Lade alle Round Results für dieses Turnier
+      // Lade alle Round Results für dieses Turnier mit Spielerinformationen
       const { data: allRoundResults, error: resultsError } = await supabase
         .from('round_results')
         .select(`
           points,
           player_id,
+          players!inner(id, name),
           rounds!inner(tournament_id)
         `)
         .eq('rounds.tournament_id', tournamentId);
@@ -102,10 +93,20 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
 
       if (roundsError) throw roundsError;
 
+      // Sammle alle einzigartigen Spieler die tatsächlich Rundenergebnisse haben
+      const uniquePlayers = new Map();
+      allRoundResults?.forEach((result: any) => {
+        const playerId = result.player_id;
+        const playerName = result.players.name;
+        if (!uniquePlayers.has(playerId)) {
+          uniquePlayers.set(playerId, { id: playerId, name: playerName });
+        }
+      });
+
       // Berechne Spieler-Gesamtpunkte
-      const playerTotals = tournamentPlayers?.reduce((acc: any, item: any) => {
-        const playerId = item.players.id;
-        const playerName = item.players.name;
+      const playerTotals = Array.from(uniquePlayers.values()).reduce((acc: any, player: any) => {
+        const playerId = player.id;
+        const playerName = player.name;
         
         // Berechne Gesamtpunkte für diesen Spieler
         const totalPoints = allRoundResults
