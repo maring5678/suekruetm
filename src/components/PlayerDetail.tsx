@@ -124,7 +124,9 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
         tournamentDetail.averagePoints = tournamentDetail.totalPoints / tournamentDetail.roundsPlayed;
       });
 
-      const tournamentList = Array.from(tournamentMap.values());
+      const tournamentList = Array.from(tournamentMap.values()).sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       // Berechne Gesamtstatistiken
       const manualPoints = allRounds.reduce((sum, round) => sum + round.points, 0);
