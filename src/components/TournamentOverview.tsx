@@ -314,7 +314,7 @@ export const TournamentOverview = ({ onBack, currentTournamentId, onContinueTour
                   <div key={round.id} className="border rounded-lg p-4">
                     <div className="mb-4">
                       <h4 className="font-semibold text-lg">
-                        Runde {round.round_number}: {winner?.player_name || 'Unbekannt'}
+                        Runde {round.round_number}: {round.creator} - #{round.track_number}
                       </h4>
                     </div>
                     <div className="flex flex-wrap gap-2">
