@@ -37,6 +37,8 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
   const [tournaments, setTournaments] = useState<TournamentDetail[]>([]);
   const [rounds, setRounds] = useState<RoundDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTournament, setSelectedTournament] = useState<TournamentDetail | null>(null);
+  const [tournamentRounds, setTournamentRounds] = useState<RoundDetail[]>([]);
   const [totalStats, setTotalStats] = useState({
     totalPoints: 0,
     tournamentsPlayed: 0,
@@ -76,12 +78,27 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
 
       if (roundError) throw roundError;
 
+      // Lade auch die Gesamtrundenanzahl pro Turnier
+      const { data: tournamentRoundCounts, error: roundCountError } = await supabase
+        .from('rounds')
+        .select('tournament_id, round_number')
+        .in('tournament_id', [...new Set(roundResults?.map(r => r.rounds.tournament_id) || [])]);
+
+      if (roundCountError) throw roundCountError;
+
       // Lade historische Daten
       const { data: historicalData } = await supabase
         .from('historical_player_totals')
         .select('total_points, tournaments_played')
         .eq('player_name', playerName)
         .maybeSingle();
+
+      // Erstelle eine Map für die Gesamtrundenanzahl pro Turnier
+      const tournamentTotalRounds = new Map<string, number>();
+      tournamentRoundCounts?.forEach(round => {
+        const current = tournamentTotalRounds.get(round.tournament_id) || 0;
+        tournamentTotalRounds.set(round.tournament_id, Math.max(current, round.round_number));
+      });
 
       // Gruppiere Rundenergebnisse nach Turnieren
       const tournamentMap = new Map<string, TournamentDetail>();
@@ -103,13 +120,14 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
 
         // Aktualisiere Turnier-Statistiken
         if (!tournamentMap.has(tournamentId)) {
+          const totalRoundsInTournament = tournamentTotalRounds.get(tournamentId) || 0;
           tournamentMap.set(tournamentId, {
             id: tournamentId,
             name: tournament.name,
             createdAt: tournament.created_at,
             completedAt: tournament.completed_at,
             totalPoints: 0,
-            roundsPlayed: 0,
+            roundsPlayed: totalRoundsInTournament, // Verwende die Gesamtrundenanzahl
             averagePoints: 0,
             bestPosition: Infinity,
             worstPosition: 0
@@ -118,10 +136,12 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
 
         const tournamentDetail = tournamentMap.get(tournamentId)!;
         tournamentDetail.totalPoints += result.points;
-        tournamentDetail.roundsPlayed += 1;
         tournamentDetail.bestPosition = Math.min(tournamentDetail.bestPosition, result.position);
         tournamentDetail.worstPosition = Math.max(tournamentDetail.worstPosition, result.position);
-        tournamentDetail.averagePoints = tournamentDetail.totalPoints / tournamentDetail.roundsPlayed;
+        
+        // Berechne den Durchschnitt basierend auf gespielten Runden, nicht auf Gesamtrunden
+        const playedRounds = roundResults?.filter(r => r.rounds.tournament_id === tournamentId).length || 1;
+        tournamentDetail.averagePoints = tournamentDetail.totalPoints / playedRounds;
       });
 
       const tournamentList = Array.from(tournamentMap.values()).sort((a, b) => 
@@ -164,6 +184,53 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
     }
   };
 
+  const handleTournamentClick = async (tournament: TournamentDetail) => {
+    try {
+      setSelectedTournament(tournament);
+      
+      // Lade alle Runden dieses Turniers für diesen Spieler
+      const { data: tournamentRoundsData, error } = await supabase
+        .from('round_results')
+        .select(`
+          points,
+          position,
+          rounds!inner(
+            round_number,
+            track_name,
+            tournament_id
+          )
+        `)
+        .eq('player_id', playerId)
+        .eq('rounds.tournament_id', tournament.id)
+        .order('rounds(round_number)', { ascending: true });
+
+      if (error) throw error;
+
+      const rounds: RoundDetail[] = tournamentRoundsData?.map(result => ({
+        roundNumber: result.rounds.round_number,
+        trackName: result.rounds.track_name,
+        position: result.position,
+        points: result.points,
+        tournamentName: tournament.name,
+        date: tournament.createdAt
+      })) || [];
+
+      setTournamentRounds(rounds);
+    } catch (error) {
+      console.error('Fehler beim Laden der Turnierdetails:', error);
+      toast({
+        title: "Fehler",
+        description: "Turnierdetails konnten nicht geladen werden",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBackToTournaments = () => {
+    setSelectedTournament(null);
+    setTournamentRounds([]);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -181,6 +248,101 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
               <p className="text-muted-foreground">Lade Spielerdetails...</p>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedTournament) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6">
+            <Button onClick={handleBackToTournaments} variant="outline" size="sm" className="shadow-sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Zurück zu Turnieren
+            </Button>
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                {selectedTournament.name}
+              </h1>
+              <p className="text-muted-foreground text-lg">Rundendetails für {playerName}</p>
+            </div>
+          </div>
+
+          {/* Turnierübersicht */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-primary">{selectedTournament.totalPoints}</div>
+                <p className="text-sm text-muted-foreground">Gesamtpunkte</p>
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-secondary">{selectedTournament.roundsPlayed}</div>
+                <p className="text-sm text-muted-foreground">Runden gespielt</p>
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-accent">{selectedTournament.averagePoints.toFixed(1)}</div>
+                <p className="text-sm text-muted-foreground">⌀ Punkte/Runde</p>
+              </CardContent>
+            </Card>
+            <Card className="shadow-lg">
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-warning">{selectedTournament.bestPosition}.</div>
+                <p className="text-sm text-muted-foreground">Beste Position</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Rundendetails */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Alle Runden ({tournamentRounds.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tournamentRounds.length === 0 ? (
+                <div className="text-center py-8">
+                  <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Keine Runden gefunden</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tournamentRounds.map((round, index) => (
+                    <div key={index} className="flex items-center justify-between border rounded-lg p-4 hover:bg-accent/5 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`
+                          w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
+                          ${round.position === 1 ? 'bg-tournament-gold text-black' :
+                            round.position === 2 ? 'bg-tournament-silver text-black' :
+                            round.position === 3 ? 'bg-tournament-bronze text-white' :
+                            'bg-muted text-muted-foreground'
+                          }
+                        `}>
+                          {round.position}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-lg">Runde {round.roundNumber}</h4>
+                          <p className="text-sm text-muted-foreground">{round.trackName}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-primary">{round.points}</div>
+                        <div className="text-sm text-muted-foreground">Punkte</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -260,10 +422,14 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
             ) : (
               <div className="space-y-4">
                 {tournaments.map((tournament) => (
-                  <div key={tournament.id} className="border rounded-lg p-4 hover:bg-accent/5 transition-colors">
+                  <div 
+                    key={tournament.id} 
+                    className="border rounded-lg p-4 hover:bg-accent/5 transition-colors cursor-pointer"
+                    onClick={() => handleTournamentClick(tournament)}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold text-lg">{tournament.name}</h3>
+                        <h3 className="font-semibold text-lg hover:text-primary transition-colors">{tournament.name}</h3>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
