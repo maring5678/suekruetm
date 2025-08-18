@@ -231,28 +231,76 @@ const processSheetAsTournament = async (data: any[][], sheetName: string) => {
     return 0;
   }
   
-  console.log(`Created tournament: ${tournament.name} with ID: ${tournament.id}`);
-  
-  // Eine Runde für das gesamte Turnier erstellen (da es ein Tagesergebnis ist)
-  const { data: round, error: roundError } = await supabase
-    .from('rounds')
-    .insert({
-      tournament_id: tournament.id,
-      round_number: 1,
-      track_name: `Turnier ${sheetName}`,
-      track_number: 'T1',
-      creator: 'Excel Import'
-    })
-    .select()
-    .single();
-  
-  if (roundError) {
-    console.error('Error creating round:', roundError);
-    return 0;
+  // Extrahiere die Runden-Header aus der Excel-Datei
+  const roundHeaders = [];
+  for (let i = 1; i < headers.length; i++) {
+    const header = headers[i];
+    if (header && header.toLowerCase().includes('runde')) {
+      roundHeaders.push({
+        index: i,
+        name: header,
+        roundNumber: roundHeaders.length + 1
+      });
+    }
   }
   
-  console.log(`Created round for tournament ${sheetName}`);
+  console.log(`Found ${roundHeaders.length} round columns:`, roundHeaders);
   
+  // Wenn keine Runden-Header gefunden, erstelle eine Standard-Runde
+  if (roundHeaders.length === 0) {
+    console.log('No round headers found, creating single default round');
+    const { data: round, error: roundError } = await supabase
+      .from('rounds')
+      .insert({
+        tournament_id: tournament.id,
+        round_number: 1,
+        track_name: `Turnier ${sheetName}`,
+        track_number: 'T1',
+        creator: 'Excel Import'
+      })
+      .select()
+      .single();
+    
+    if (roundError) {
+      console.error('Error creating round:', roundError);
+      return 0;
+    }
+    
+    console.log(`Created default round for tournament ${sheetName}`);
+    
+    // Verarbeite als eine Runde mit Gesamtpunkten
+    return await processPlayersForSingleRound(data, dataStartIndex, tournament.id, round.id, sheetName);
+  }
+  
+  // Erstelle separate Runden für jede Runden-Spalte
+  const rounds = [];
+  for (const roundHeader of roundHeaders) {
+    const { data: round, error: roundError } = await supabase
+      .from('rounds')
+      .insert({
+        tournament_id: tournament.id,
+        round_number: roundHeader.roundNumber,
+        track_name: roundHeader.name,
+        track_number: `R${roundHeader.roundNumber}`,
+        creator: 'Excel Import'
+      })
+      .select()
+      .single();
+    
+    if (roundError) {
+      console.error('Error creating round:', roundError);
+      continue;
+    }
+    
+    rounds.push({
+      ...round,
+      columnIndex: roundHeader.index
+    });
+  }
+  
+  console.log(`Created ${rounds.length} rounds for tournament ${sheetName}`);
+  
+  // Verarbeite Spieler für alle Runden
   let playersProcessed = 0;
   
   // Alle Zeilen durchgehen (ab der ermittelten Datenstart-Zeile)
@@ -262,47 +310,31 @@ const processSheetAsTournament = async (data: any[][], sheetName: string) => {
     
     const playerName = String(row[0]).trim();
     
-    // Debug-Ausgabe für Felix
-    if (playerName.toLowerCase().includes('felix')) {
-      console.log(`DEBUG: Found Felix row in ${sheetName}:`, row);
-    }
-    
     // Spielernamen validieren
     if (!playerName || playerName === 'Name' || playerName.includes('#') || playerName.length < 2) {
       console.log(`Skipping invalid player name: "${playerName}"`);
       continue;
     }
     
-    // Debug-Output für alle Zellen in der Zeile
-    console.log(`DEBUG ${sheetName}: Player "${playerName}" row:`, row);
+    console.log(`Processing player: ${playerName}`);
     
-    // Prüfe, ob der Spieler überhaupt teilgenommen hat (eine Zelle mit Punkten gefüllt)
-    let hasAnyFilledField = false;
-    let totalPoints = 0;
-    
-    // Durchlaufe alle Spalten ab Index 1 (da Index 0 der Name ist)
-    for (let j = 1; j < row.length; j++) {
-      const cellValue = row[j];
-      console.log(`DEBUG ${sheetName}: ${playerName} cell[${j}] = "${cellValue}" (type: ${typeof cellValue})`);
-      
-      // Prüfe, ob die Zelle Punkte enthält
+    // Prüfe, ob der Spieler überhaupt teilgenommen hat
+    let hasAnyParticipation = false;
+    for (const round of rounds) {
+      const cellValue = row[round.columnIndex];
       if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
         const points = typeof cellValue === 'number' ? cellValue : parseInt(String(cellValue));
         if (!isNaN(points) && points >= 0) {
-          hasAnyFilledField = true;
-          totalPoints += points;
+          hasAnyParticipation = true;
+          break;
         }
       }
     }
     
-    console.log(`DEBUG ${sheetName}: ${playerName} hasAnyFilledField=${hasAnyFilledField}, totalPoints=${totalPoints}`);
-    
-    if (!hasAnyFilledField) {
-      console.log(`Skipping ${playerName} in ${sheetName} - no filled fields (no participation)`);
+    if (!hasAnyParticipation) {
+      console.log(`Skipping ${playerName} - no participation in any round`);
       continue;
     }
-    
-    console.log(`${playerName}: ${totalPoints} total points for ${sheetName} (participated)`);
     
     // Spieler erstellen oder finden
     const { data: existingPlayer } = await supabase
@@ -336,30 +368,116 @@ const processSheetAsTournament = async (data: any[][], sheetName: string) => {
         player_id: playerId
       });
     
-    if (tournamentPlayerError) {
+    if (tournamentPlayerError && !tournamentPlayerError.message?.includes('duplicate')) {
       console.error('Error creating tournament player:', tournamentPlayerError);
       continue;
     }
     
-    // Rundenresultat erstellen (Position auf Basis der Gesamtpunkte)
-    const { error: resultError } = await supabase
-      .from('round_results')
-      .insert({
-        round_id: round.id,
-        player_id: playerId,
-        position: 1, // Wird später korrekt sortiert
-        points: totalPoints
-      });
-    
-    if (resultError) {
-      console.error('Error creating round result:', resultError);
-      continue;
+    // Für jede Runde die Ergebnisse erstellen
+    for (const round of rounds) {
+      const cellValue = row[round.columnIndex];
+      
+      // Nur erstellen wenn der Spieler teilgenommen hat
+      if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+        const points = typeof cellValue === 'number' ? cellValue : parseInt(String(cellValue));
+        
+        if (!isNaN(points) && points >= 0) {
+          console.log(`${playerName} - Round ${round.round_number}: ${points} points`);
+          
+          const { error: resultError } = await supabase
+            .from('round_results')
+            .insert({
+              round_id: round.id,
+              player_id: playerId,
+              position: 1, // Wird später korrekt sortiert
+              points: points
+            });
+          
+          if (resultError) {
+            console.error('Error creating round result:', resultError);
+          }
+        }
+      }
     }
     
     playersProcessed++;
   }
   
   console.log(`Processed ${playersProcessed} players for tournament ${sheetName}`);
+  return playersProcessed;
+};
+
+// Hilfsfunktion für Single-Round-Verarbeitung (Fallback)
+const processPlayersForSingleRound = async (data: any[][], dataStartIndex: number, tournamentId: string, roundId: string, sheetName: string) => {
+  let playersProcessed = 0;
+  
+  for (let i = dataStartIndex; i < data.length; i++) {
+    const row = data[i];
+    if (!row || row.length === 0 || !row[0]) continue;
+    
+    const playerName = String(row[0]).trim();
+    
+    if (!playerName || playerName === 'Name' || playerName.includes('#') || playerName.length < 2) {
+      continue;
+    }
+    
+    // Summiere alle Punkte aus allen Spalten für Gesamtergebnis
+    let totalPoints = 0;
+    let hasAnyFilledField = false;
+    
+    for (let j = 1; j < row.length; j++) {
+      const cellValue = row[j];
+      if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+        const points = typeof cellValue === 'number' ? cellValue : parseInt(String(cellValue));
+        if (!isNaN(points) && points >= 0) {
+          hasAnyFilledField = true;
+          totalPoints += points;
+        }
+      }
+    }
+    
+    if (!hasAnyFilledField) continue;
+    
+    // Spieler erstellen/finden und Ergebnis eintragen
+    const { data: existingPlayer } = await supabase
+      .from('players')
+      .select('*')
+      .eq('name', playerName)
+      .single();
+    
+    let playerId;
+    if (existingPlayer) {
+      playerId = existingPlayer.id;
+    } else {
+      const { data: newPlayer, error: playerError } = await supabase
+        .from('players')
+        .insert({ name: playerName })
+        .select()
+        .single();
+      
+      if (playerError) continue;
+      playerId = newPlayer.id;
+    }
+    
+    await supabase
+      .from('tournament_players')
+      .insert({
+        tournament_id: tournamentId,
+        player_id: playerId
+      });
+    
+    await supabase
+      .from('round_results')
+      .insert({
+        round_id: roundId,
+        player_id: playerId,
+        position: 1,
+        points: totalPoints
+      });
+    
+    playersProcessed++;
+  }
+  
   return playersProcessed;
 };
 
