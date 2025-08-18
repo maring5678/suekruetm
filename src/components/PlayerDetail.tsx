@@ -86,6 +86,14 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
 
       if (roundCountError) throw roundCountError;
 
+      // Für importierte Turniere: Berechne die Rundenanzahl basierend auf der Anzahl der Ergebnisse pro Turnier
+      const { data: tournamentResultCounts, error: resultCountError } = await supabase
+        .from('round_results')
+        .select('round_id, rounds!inner(tournament_id)')
+        .in('rounds.tournament_id', [...new Set(roundResults?.map(r => r.rounds.tournament_id) || [])]);
+
+      if (resultCountError) throw resultCountError;
+
       // Lade historische Daten
       const { data: historicalData } = await supabase
         .from('historical_player_totals')
@@ -99,6 +107,28 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
         const current = tournamentTotalRounds.get(round.tournament_id) || 0;
         tournamentTotalRounds.set(round.tournament_id, Math.max(current, round.round_number));
       });
+
+      // Für importierte Turniere: Berechne Rundenanzahl basierend auf Anzahl der Ergebnisse
+      const tournamentResultsCount = new Map<string, number>();
+      tournamentResultCounts?.forEach(result => {
+        const tournamentId = result.rounds.tournament_id;
+        const current = tournamentResultsCount.get(tournamentId) || 0;
+        tournamentResultsCount.set(tournamentId, current + 1);
+      });
+
+      // Bestimme die richtige Rundenanzahl: Verwende die höhere Zahl zwischen rounds und results
+      const getTournamentRoundCount = (tournamentId: string) => {
+        const roundsCount = tournamentTotalRounds.get(tournamentId) || 0;
+        const resultsCount = tournamentResultsCount.get(tournamentId) || 0;
+        
+        // Für importierte Turniere (wenige Runden, aber viele Ergebnisse) verwende die Ergebnisanzahl
+        if (roundsCount === 1 && resultsCount > 1) {
+          return resultsCount;
+        }
+        
+        // Ansonsten verwende die normale Rundenzahl
+        return Math.max(roundsCount, 1);
+      };
 
       // Gruppiere Rundenergebnisse nach Turnieren
       const tournamentMap = new Map<string, TournamentDetail>();
@@ -120,14 +150,14 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
 
         // Aktualisiere Turnier-Statistiken
         if (!tournamentMap.has(tournamentId)) {
-          const totalRoundsInTournament = tournamentTotalRounds.get(tournamentId) || 0;
+          const totalRoundsInTournament = getTournamentRoundCount(tournamentId);
           tournamentMap.set(tournamentId, {
             id: tournamentId,
             name: tournament.name,
             createdAt: tournament.created_at,
             completedAt: tournament.completed_at,
             totalPoints: 0,
-            roundsPlayed: totalRoundsInTournament, // Verwende die Gesamtrundenanzahl
+            roundsPlayed: totalRoundsInTournament,
             averagePoints: 0,
             bestPosition: Infinity,
             worstPosition: 0
