@@ -188,29 +188,45 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
     try {
       setSelectedTournament(tournament);
       
-      // Lade alle Runden dieses Turniers für diesen Spieler
-      const { data: tournamentRoundsData, error } = await supabase
+      // Lade alle Runden dieses Turniers (nicht nur die vom Spieler)
+      const { data: allRoundsData, error: roundsError } = await supabase
+        .from('rounds')
+        .select(`
+          id,
+          round_number,
+          track_name,
+          tournament_id
+        `)
+        .eq('tournament_id', tournament.id)
+        .order('round_number', { ascending: true });
+
+      if (roundsError) throw roundsError;
+
+      // Lade die Ergebnisse des Spielers für diese Runden
+      const { data: playerResultsData, error: resultsError } = await supabase
         .from('round_results')
         .select(`
           points,
           position,
-          rounds!inner(
-            round_number,
-            track_name,
-            tournament_id
-          )
+          round_id
         `)
         .eq('player_id', playerId)
-        .eq('rounds.tournament_id', tournament.id)
-        .order('rounds(round_number)', { ascending: true });
+        .in('round_id', allRoundsData?.map(r => r.id) || []);
 
-      if (error) throw error;
+      if (resultsError) throw resultsError;
 
-      const rounds: RoundDetail[] = tournamentRoundsData?.map(result => ({
-        roundNumber: result.rounds.round_number,
-        trackName: result.rounds.track_name,
-        position: result.position,
-        points: result.points,
+      // Erstelle eine Map für schnelle Suche der Spielerergebnisse
+      const resultsMap = new Map(playerResultsData?.map(result => [
+        result.round_id,
+        { points: result.points, position: result.position }
+      ]) || []);
+
+      // Kombiniere alle Runden mit den Spielerergebnissen
+      const rounds: RoundDetail[] = allRoundsData?.map(round => ({
+        roundNumber: round.round_number,
+        trackName: round.track_name,
+        position: resultsMap.get(round.id)?.position || 0, // 0 bedeutet nicht teilgenommen
+        points: resultsMap.get(round.id)?.points || 0,
         tournamentName: tournament.name,
         date: tournament.createdAt
       })) || [];
@@ -320,13 +336,14 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
                       <div className="flex items-center gap-4">
                         <div className={`
                           w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
-                          ${round.position === 1 ? 'bg-tournament-gold text-black' :
+                          ${round.position === 0 ? 'bg-muted text-muted-foreground' :
+                            round.position === 1 ? 'bg-tournament-gold text-black' :
                             round.position === 2 ? 'bg-tournament-silver text-black' :
                             round.position === 3 ? 'bg-tournament-bronze text-white' :
                             'bg-muted text-muted-foreground'
                           }
                         `}>
-                          {round.position}
+                          {round.position === 0 ? '-' : round.position}
                         </div>
                         <div>
                           <h4 className="font-medium text-lg">Runde {round.roundNumber}</h4>
@@ -335,7 +352,9 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-primary">{round.points}</div>
-                        <div className="text-sm text-muted-foreground">Punkte</div>
+                        <div className="text-sm text-muted-foreground">
+                          {round.position === 0 ? 'Nicht teilgenommen' : 'Punkte'}
+                        </div>
                       </div>
                     </div>
                   ))}
