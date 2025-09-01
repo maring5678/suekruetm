@@ -441,6 +441,36 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
               
               <div className="flex gap-3">
                 <Button
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('tournaments')
+                        .update({ completed_at: new Date().toISOString() })
+                        .is('completed_at', null);
+                      
+                      if (error) throw error;
+                      
+                      toast({
+                        title: "Alle Turniere beendet",
+                        description: "Alle aktiven Turniere wurden erfolgreich abgeschlossen."
+                      });
+                      
+                      if (onBack) onBack();
+                    } catch (error) {
+                      console.error('Fehler beim Beenden der Turniere:', error);
+                      toast({
+                        title: "Fehler",
+                        description: "Turniere konnten nicht beendet werden.",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  variant="destructive"
+                  size="lg"
+                >
+                  Turnier beenden
+                </Button>
+                <Button
                   onClick={() => {
                     const finalCreator = isCustomCreator ? customCreator : creator;
                     const trackName = `${finalCreator} #${trackNumber}`;
