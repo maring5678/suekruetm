@@ -1,0 +1,293 @@
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { MessageCircle, Send, Users, Eye, EyeOff } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface ChatMessage {
+  id: string;
+  user_name: string;
+  message: string;
+  created_at: string;
+  room_id: string;
+}
+
+interface UserPresence {
+  user_name: string;
+  online_at: string;
+}
+
+interface LiveChatProps {
+  roomId: string;
+  userName: string;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
+}
+
+export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimize }: LiveChatProps) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+
+  // Auto-scroll zu neuen Nachrichten
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Lade bestehende Nachrichten
+  useEffect(() => {
+    loadMessages();
+    setupRealtimeSubscription();
+    setupPresenceTracking();
+    
+    return () => {
+      // Cleanup subscriptions
+      supabase.removeAllChannels();
+    };
+  }, [roomId]);
+
+  const loadMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: true })
+        .limit(50);
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Fehler beim Laden der Nachrichten:', error);
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    const channel = supabase
+      .channel(`chat-${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `room_id=eq.${roomId}`
+        },
+        (payload) => {
+          const newMessage = payload.new as ChatMessage;
+          setMessages(current => [...current, newMessage]);
+          
+          // Zeige Toast für neue Nachrichten von anderen Benutzern
+          if (newMessage.user_name !== userName && isMinimized) {
+            toast({
+              title: "Neue Nachricht",
+              description: `${newMessage.user_name}: ${newMessage.message.substring(0, 50)}${newMessage.message.length > 50 ? '...' : ''}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  };
+
+  const setupPresenceTracking = () => {
+    const presenceChannel = supabase.channel(`presence-${roomId}`, {
+      config: {
+        presence: {
+          key: userName,
+        },
+      },
+    });
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = presenceChannel.presenceState();
+        const users = Object.keys(presenceState).map(key => ({
+          user_name: key,
+          online_at: new Date().toISOString()
+        }));
+        setOnlineUsers(users);
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('Benutzer beigetreten:', key, newPresences);
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('Benutzer verlassen:', key, leftPresences);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            user_name: userName,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return presenceChannel;
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert({
+          room_id: roomId,
+          user_name: userName,
+          message: newMessage.trim()
+        });
+
+      if (error) throw error;
+      setNewMessage("");
+    } catch (error) {
+      console.error('Fehler beim Senden der Nachricht:', error);
+      toast({
+        title: "Fehler",
+        description: "Nachricht konnte nicht gesendet werden",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button 
+          onClick={onToggleMinimize}
+          className="relative"
+          size="lg"
+        >
+          <MessageCircle className="h-5 w-5 mr-2" />
+          Chat
+          {onlineUsers.length > 1 && (
+            <Badge className="ml-2 bg-green-500 text-white">
+              {onlineUsers.length}
+            </Badge>
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 w-80 h-96 z-50">
+      <Card className="h-full flex flex-col shadow-lg">
+        <CardHeader className="pb-3 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-primary" />
+              Live Chat
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                <Users className="h-3 w-3 mr-1" />
+                {onlineUsers.length}
+              </Badge>
+              <Button
+                onClick={onToggleMinimize}
+                variant="ghost"
+                size="sm"
+              >
+                {isMinimized ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="flex-1 flex flex-col p-3 gap-3">
+          {/* Online Benutzer */}
+          {onlineUsers.length > 0 && (
+            <div className="flex gap-1 flex-wrap">
+              {onlineUsers.map(user => (
+                <Badge 
+                  key={user.user_name}
+                  variant={user.user_name === userName ? "default" : "secondary"}
+                  className="text-xs"
+                >
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
+                  {user.user_name}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Nachrichten */}
+          <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+            {messages.length === 0 ? (
+              <div className="text-center text-muted-foreground text-sm py-4">
+                Noch keine Nachrichten. Starte die Unterhaltung!
+              </div>
+            ) : (
+              messages.map(message => (
+                <div
+                  key={message.id}
+                  className={`
+                    p-2 rounded-lg text-sm
+                    ${message.user_name === userName 
+                      ? 'bg-primary text-primary-foreground ml-4' 
+                      : 'bg-muted mr-4'
+                    }
+                  `}
+                >
+                  <div className="font-medium text-xs opacity-75">
+                    {message.user_name} • {formatTime(message.created_at)}
+                  </div>
+                  <div className="mt-1">{message.message}</div>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Eingabefeld */}
+          <div className="flex gap-2 flex-shrink-0">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Nachricht eingeben..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button 
+              onClick={sendMessage}
+              disabled={!newMessage.trim() || isLoading}
+              size="sm"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
