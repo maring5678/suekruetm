@@ -1,0 +1,1 @@
+UPDATE tournaments SET completed_at = now() WHERE completed_at IS NULL;
