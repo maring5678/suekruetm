@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
 
@@ -13,24 +15,27 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/tournament/:tournamentId" element={<Index />} />
-            <Route path="/statistics" element={<Index />} />
-            <Route path="/player/:playerId" element={<Index />} />
-            <Route path="/tournaments" element={<Index />} />
-            <Route path="/live-ranking" element={<Index />} />
-            <Route path="/excel-import" element={<Index />} />
-            <Route path="/demo" element={<Demo />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/tournament/:tournamentId" element={<Index />} />
+              <Route path="/statistics" element={<Index />} />
+              <Route path="/player/:playerId" element={<Index />} />
+              <Route path="/tournaments" element={<Index />} />
+              <Route path="/live-ranking" element={<Index />} />
+              <Route path="/excel-import" element={<Index />} />
+              <Route path="/demo" element={<Demo />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

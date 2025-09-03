@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LogOut, Loader2 } from "lucide-react";
 import { PlayerSelection } from "@/components/PlayerSelection";
 import { PlayerEdit } from "@/components/PlayerEdit";
 import { RoundInput } from "@/components/RoundInput";
@@ -44,6 +48,7 @@ const Index = () => {
   const navigate = useNavigate();
   const params = useParams();
   const location = useLocation();
+  const { user, profile, loading, signOut } = useAuth();
   
   // Bestimme gameState basierend auf der URL
   const getGameStateFromUrl = (): GameState => {
@@ -69,8 +74,30 @@ const Index = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(params.playerId || null);
   const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
   const [chatMinimized, setChatMinimized] = useState(true);
-  const [userName] = useState(`Spieler${Math.floor(Math.random() * 1000)}`);
   const { toast } = useToast();
+
+  // Authentifizierung prüfen
+  useEffect(() => {
+    if (loading) return;
+    
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
+    const path = location.pathname;
+    const newGameState = getGameStateFromUrl();
+    setGameStateInternal(newGameState);
+    
+    // Parameter aktualisieren
+    if (params.tournamentId && params.tournamentId !== currentTournamentId) {
+      setCurrentTournamentId(params.tournamentId);
+      handleContinueTournament(params.tournamentId);
+    }
+    if (params.playerId && params.playerId !== selectedPlayerId) {
+      setSelectedPlayerId(params.playerId);
+    }
+  }, [location.pathname, params.tournamentId, params.playerId, user, loading, navigate]);
 
   // Navigation mit URL-Update
   const setGameState = (newState: GameState, params?: { tournamentId?: string; playerId?: string }) => {
@@ -107,18 +134,22 @@ const Index = () => {
     }
   };
 
-  // Synchronisiere URL-Parameter mit Zustand
-  useEffect(() => {
-    if (params.tournamentId && params.tournamentId !== currentTournamentId) {
-      setCurrentTournamentId(params.tournamentId);
-      // Lade Turnier-Daten wenn tournamentId in URL
-      handleContinueTournament(params.tournamentId);
-    }
-    if (params.playerId && params.playerId !== selectedPlayerId) {
-      setSelectedPlayerId(params.playerId);
-      // Lade Player-Details
-    }
-  }, [params.tournamentId, params.playerId]);
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const handleStartTournament = async (players: Player[]) => {
     try {
@@ -498,165 +529,131 @@ const Index = () => {
     setGameState("round-input");
   };
 
-  const handlePlayerClick = (playerId: string, playerName: string) => {
+  const handlePlayerDetailView = (playerId: string, playerName: string) => {
     setSelectedPlayerId(playerId);
     setSelectedPlayerName(playerName);
     setGameState("player-detail", { playerId });
   };
 
   const handleBackFromPlayerDetail = () => {
-    setSelectedPlayerId(null);
-    setSelectedPlayerName(null);
-    // Intelligenter Rücksprung - zurück zu Hauptmenü
     if (currentTournamentId) {
       setGameState("leaderboard");
     } else {
-      setGameState("statistics");
+      setGameState("player-selection");
     }
   };
 
-  // Convert playerScores object to array format for components that expect array
-  const playerScoresArray = Object.values(playerScores).map(score => ({
-    player: { id: score.playerId, name: score.playerName },
-    totalPoints: score.totalPoints,
-    roundResults: score.roundScores.map((points, index) => ({
-      round: index + 1,
-      track: `Track ${index + 1}`,
-      position: 1, // Simplified for now
-      points
-    }))
-  }));
-
-  // Rendere Theme Toggle und Live Chat für alle Zustände
-  const renderWithGlobalFeatures = (content: React.ReactNode) => (
-    <>
-      {content}
-      
-      {/* Theme Toggle - immer sichtbar */}
-      <div className="fixed top-4 right-4 z-40">
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg p-2 border">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={profile?.avatar_url} />
+            <AvatarFallback>
+              {profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">{profile?.display_name}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            className="h-8 w-8 p-0"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
         <ThemeToggle />
-      </div>
-      
-      {/* Live Chat - nur wenn Turnier aktiv oder in bestimmten Zuständen */}
-      {(currentTournamentId || ['leaderboard', 'round-input', 'tournament-complete'].includes(gameState)) && (
         <LiveChat 
-          roomId={currentTournamentId || "main-lobby"}
-          userName={userName}
+          roomId="general" 
+          userName={profile?.display_name || 'Anonymous'}
           isMinimized={chatMinimized}
           onToggleMinimize={() => setChatMinimized(!chatMinimized)}
         />
-      )}
-    </>
+      </div>
+
+      <div className="container mx-auto p-4">
+        {gameState === "player-selection" && (
+          <PlayerSelection
+            onStartTournament={handleStartTournament}
+            onShowStatistics={handleShowStatistics}
+            onTournamentOverview={handleTournamentOverview}
+            onShowLiveRanking={handleShowLiveRanking}
+            onExcelImport={handleExcelImport}
+          />
+        )}
+
+        {gameState === "player-edit" && (
+          <PlayerEdit
+            selectedPlayers={selectedPlayers}
+            onPlayersConfirmed={handlePlayersConfirmed}
+            onBack={() => setGameState("leaderboard")}
+          />
+        )}
+
+        {gameState === "round-input" && (
+          <RoundInput
+            selectedPlayers={selectedPlayers}
+            currentRound={currentRound}
+            onRoundComplete={handleRoundComplete}
+            onBack={() => setGameState("player-selection")}
+            previousCreators={previousCreators}
+          />
+        )}
+
+        {gameState === "leaderboard" && (
+          <Leaderboard
+            playerScores={Object.values(playerScores)}
+            currentRound={currentRound}
+            onNextRound={handleNextRound}
+            onEndTournament={handleEndTournament}
+            onNewTournament={handleNewTournament}
+            onPlayerDetail={handlePlayerDetailView}
+          />
+        )}
+
+        {gameState === "tournament-complete" && (
+          <TournamentComplete
+            playerScores={Object.values(playerScores)}
+            onNewTournament={handleNewTournament}
+            onShowStatistics={handleShowStatistics}
+          />
+        )}
+
+        {gameState === "statistics" && (
+          <Statistics onBack={handleBackFromStatistics} onPlayerClick={handlePlayerDetailView} />
+        )}
+
+        {gameState === "excel-import" && (
+          <ExcelImport
+            onBack={() => setGameState("player-selection")}
+            onImportComplete={handleImportComplete}
+            onStartImport={handleStartExcelImport}
+          />
+        )}
+
+        {gameState === "player-detail" && selectedPlayerId && (
+          <PlayerDetail
+            playerId={selectedPlayerId}
+            playerName={selectedPlayerName}
+            onBack={handleBackFromPlayerDetail}
+          />
+        )}
+
+        {gameState === "tournament-overview" && (
+          <TournamentOverview
+            onBack={handleBackFromTournaments}
+            onContinueTournament={handleContinueTournament}
+            currentTournamentId={currentTournamentId}
+          />
+        )}
+
+        {gameState === "live-ranking" && (
+          <LiveRanking onBack={handleBackFromLiveRanking} />
+        )}
+      </div>
+    </div>
   );
-
-  switch (gameState) {
-    case "player-selection":
-      return renderWithGlobalFeatures(
-        <PlayerSelection 
-          onPlayersSelected={handleStartTournament}
-          onShowStatistics={handleShowStatistics}
-          onShowExcelImport={handleExcelImport}
-          onTournamentOverview={handleTournamentOverview}
-          onJoinTournament={handleContinueTournament}
-          isCurrentTournament={!!currentTournamentId}
-          currentTournamentId={currentTournamentId}
-          onShowLiveRanking={handleShowLiveRanking}
-        />
-      );
-    
-    case "live-ranking":
-      return renderWithGlobalFeatures(
-        <LiveRanking 
-          onBack={handleBackFromLiveRanking}
-          currentTournamentId={currentTournamentId}
-        />
-      );
-    
-    case "player-edit":
-      return renderWithGlobalFeatures(
-        <PlayerEdit
-          currentRound={currentRound}
-          selectedPlayers={selectedPlayers}
-          onPlayersConfirmed={handlePlayersConfirmed}
-        />
-      );
-    
-    case "round-input":
-      return renderWithGlobalFeatures(
-        <RoundInput
-          roundNumber={currentRound}
-          players={selectedPlayers}
-          onRoundComplete={handleRoundComplete}
-          onPlayersChange={handlePlayersConfirmed}
-          onBack={() => setGameState('player-selection')}
-        />
-      );
-    
-    case "leaderboard":
-      return renderWithGlobalFeatures(
-        <Leaderboard
-          playerScores={playerScoresArray}
-          currentRound={currentRound}
-          onNextRound={handleNextRound}
-          onEndTournament={handleEndTournament}
-          onPlayerClick={handlePlayerClick}
-          onBack={() => setGameState('round-input')}
-        />
-      );
-    
-    case "tournament-complete":
-      return renderWithGlobalFeatures(
-        <TournamentComplete
-          playerScores={playerScoresArray}
-          onNewTournament={handleNewTournament}
-          onPlayerClick={handlePlayerClick}
-          onBack={() => setGameState('player-selection')}
-        />
-      );
-    
-    case "statistics":
-      return renderWithGlobalFeatures(
-        <Statistics onBack={handleBackFromStatistics} onPlayerClick={handlePlayerClick} />
-      );
-
-    case "excel-import":
-      return renderWithGlobalFeatures(
-        <ExcelImport
-          onImportComplete={handleImportComplete}
-          onBack={handleBackFromStatistics}
-        />
-      );
-
-    case "player-detail":
-      return selectedPlayerId && selectedPlayerName ? renderWithGlobalFeatures(
-        <PlayerDetail
-          playerId={selectedPlayerId}
-          playerName={selectedPlayerName}
-          onBack={handleBackFromPlayerDetail}
-        />
-      ) : null;
-
-    case "tournament-overview":
-      return renderWithGlobalFeatures(
-        <TournamentOverview 
-          onBack={() => setGameState('player-selection')}
-          currentTournamentId={currentTournamentId}
-          onContinueTournament={handleContinueTournament}
-          onDeleteTournament={(tournamentId) => {
-            if (tournamentId === currentTournamentId) {
-              setCurrentTournamentId(null);
-            }
-          }}
-        />
-      );
-    
-    default:
-      return renderWithGlobalFeatures(
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <p className="text-muted-foreground">Unbekannter Zustand</p>
-        </div>
-      );
-  }
 };
 
 export default Index;

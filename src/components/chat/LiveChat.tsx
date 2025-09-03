@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Send, Users, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatMessage {
@@ -35,6 +36,7 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
   const [autoScroll, setAutoScroll] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const { profile } = useAuth();
   const { toast } = useToast();
 
   // Auto-scroll zu neuen Nachrichten
@@ -177,7 +179,7 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || isLoading) return;
+    if (!newMessage.trim() || isLoading || !profile?.display_name) return;
 
     setIsLoading(true);
     try {
@@ -186,7 +188,7 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
         .from('chat_messages')
         .insert({
           room_id: roomId,
-          user_name: userName,
+          user_name: profile.display_name,
           message: newMessage.trim()
         });
 
@@ -298,7 +300,7 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
                     key={message.id}
                     className={`
                       p-2 rounded-lg text-sm break-words
-                      ${message.user_name === userName 
+                      ${message.user_name === profile?.display_name
                         ? 'bg-primary text-primary-foreground ml-4' 
                         : 'bg-muted mr-4'
                       }
