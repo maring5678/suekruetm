@@ -32,27 +32,51 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
   const [newMessage, setNewMessage] = useState("");
   const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Auto-scroll zu neuen Nachrichten
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (autoScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Überwache Scroll-Position um Auto-Scroll zu steuern
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setAutoScroll(isNearBottom);
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, autoScroll]);
 
-  // Lade bestehende Nachrichten
+  // Lade bestehende Nachrichten und Setup
   useEffect(() => {
-    loadMessages();
-    setupRealtimeSubscription();
-    setupPresenceTracking();
+    let chatChannel: any = null;
+    let presenceChannel: any = null;
+
+    const setupChat = async () => {
+      await loadMessages();
+      chatChannel = setupRealtimeSubscription();
+      presenceChannel = setupPresenceTracking();
+    };
+
+    setupChat();
     
     return () => {
-      // Cleanup subscriptions
-      supabase.removeAllChannels();
+      if (chatChannel) {
+        supabase.removeChannel(chatChannel);
+      }
+      if (presenceChannel) {
+        supabase.removeChannel(presenceChannel);
+      }
     };
   }, [roomId]);
 
@@ -75,7 +99,11 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
-      .channel(`chat-${roomId}`)
+      .channel(`chat-${roomId}`, {
+        config: {
+          broadcast: { self: false }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -85,8 +113,16 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
           filter: `room_id=eq.${roomId}`
         },
         (payload) => {
+          console.log('Neue Chat-Nachricht empfangen:', payload);
           const newMessage = payload.new as ChatMessage;
-          setMessages(current => [...current, newMessage]);
+          
+          setMessages(current => {
+            // Verhindere Duplikate
+            if (current.some(msg => msg.id === newMessage.id)) {
+              return current;
+            }
+            return [...current, newMessage];
+          });
           
           // Zeige Toast für neue Nachrichten von anderen Benutzern
           if (newMessage.user_name !== userName && isMinimized) {
@@ -97,7 +133,9 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Chat Realtime Status:', status);
+      });
 
     return channel;
   };
@@ -243,31 +281,55 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
           )}
 
           {/* Nachrichten */}
-          <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto space-y-2 min-h-0 max-h-[280px] scroll-smooth"
+            onScroll={handleScroll}
+            style={{ scrollBehavior: 'smooth' }}
+          >
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground text-sm py-4">
                 Noch keine Nachrichten. Starte die Unterhaltung!
               </div>
             ) : (
-              messages.map(message => (
-                <div
-                  key={message.id}
-                  className={`
-                    p-2 rounded-lg text-sm
-                    ${message.user_name === userName 
-                      ? 'bg-primary text-primary-foreground ml-4' 
-                      : 'bg-muted mr-4'
-                    }
-                  `}
-                >
-                  <div className="font-medium text-xs opacity-75">
-                    {message.user_name} • {formatTime(message.created_at)}
+              <>
+                {messages.map(message => (
+                  <div
+                    key={message.id}
+                    className={`
+                      p-2 rounded-lg text-sm break-words
+                      ${message.user_name === userName 
+                        ? 'bg-primary text-primary-foreground ml-4' 
+                        : 'bg-muted mr-4'
+                      }
+                    `}
+                  >
+                    <div className="font-medium text-xs opacity-75">
+                      {message.user_name} • {formatTime(message.created_at)}
+                    </div>
+                    <div className="mt-1 whitespace-pre-wrap">{message.message}</div>
                   </div>
-                  <div className="mt-1">{message.message}</div>
-                </div>
-              ))
+                ))}
+                <div ref={messagesEndRef} />
+              </>
             )}
-            <div ref={messagesEndRef} />
+            
+            {/* Scroll to bottom Button */}
+            {!autoScroll && (
+              <div className="sticky bottom-2 right-2 flex justify-end">
+                <Button
+                  onClick={() => {
+                    setAutoScroll(true);
+                    scrollToBottom();
+                  }}
+                  size="sm"
+                  variant="secondary"
+                  className="opacity-80 hover:opacity-100"
+                >
+                  ↓ Neue Nachrichten
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Eingabefeld */}

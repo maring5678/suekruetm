@@ -13,6 +13,7 @@ import { LiveChat } from "@/components/chat/LiveChat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useGameState } from "@/hooks/useGameState";
 
 interface Player {
   id: string;
@@ -37,10 +38,8 @@ interface PlayerScoreOld {
   }[];
 }
 
-type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail" | "tournament-overview" | "live-ranking";
-
 const Index = () => {
-  const [gameState, setGameState] = useState<GameState>("player-selection");
+  const { gameState, setGameState, previousState } = useGameState("player-selection");
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScores, setPlayerScores] = useState<{ [key: string]: PlayerScore }>({});
@@ -439,8 +438,10 @@ const Index = () => {
   const handleBackFromPlayerDetail = () => {
     setSelectedPlayerId(null);
     setSelectedPlayerName(null);
-    // Zurück zum vorherigen Zustand - je nach Kontext
-    if (currentTournamentId) {
+    // Intelligenter Rücksprung basierend auf vorherigem Zustand
+    if (previousState && ['leaderboard', 'statistics', 'tournament-overview'].includes(previousState)) {
+      setGameState(previousState);
+    } else if (currentTournamentId) {
       setGameState("leaderboard");
     } else {
       setGameState("statistics");
