@@ -575,11 +575,14 @@ const Index = () => {
       <div className="container mx-auto p-4">
         {gameState === "player-selection" && (
           <PlayerSelection
-            onStartTournament={handleStartTournament}
+            onPlayersSelected={handleStartTournament}
             onShowStatistics={handleShowStatistics}
             onTournamentOverview={handleTournamentOverview}
             onShowLiveRanking={handleShowLiveRanking}
-            onExcelImport={handleExcelImport}
+            onShowExcelImport={handleExcelImport}
+            onJoinTournament={handleContinueTournament}
+            isCurrentTournament={!!currentTournamentId}
+            currentTournamentId={currentTournamentId}
           />
         )}
 
@@ -587,36 +590,43 @@ const Index = () => {
           <PlayerEdit
             selectedPlayers={selectedPlayers}
             onPlayersConfirmed={handlePlayersConfirmed}
-            onBack={() => setGameState("leaderboard")}
+            currentRound={currentRound}
           />
         )}
 
         {gameState === "round-input" && (
           <RoundInput
-            selectedPlayers={selectedPlayers}
-            currentRound={currentRound}
+            players={selectedPlayers}
+            roundNumber={currentRound}
             onRoundComplete={handleRoundComplete}
+            onPlayersChange={setSelectedPlayers}
             onBack={() => setGameState("player-selection")}
-            previousCreators={previousCreators}
           />
         )}
 
         {gameState === "leaderboard" && (
           <Leaderboard
-            playerScores={Object.values(playerScores)}
+            playerScores={Object.values(playerScores).map(score => ({
+              player: { id: score.playerId, name: score.playerName },
+              totalPoints: score.totalPoints,
+              roundResults: []
+            }))}
             currentRound={currentRound}
             onNextRound={handleNextRound}
             onEndTournament={handleEndTournament}
-            onNewTournament={handleNewTournament}
-            onPlayerDetail={handlePlayerDetailView}
+            onPlayerClick={handlePlayerDetailView}
+            onBack={handleNewTournament}
           />
         )}
 
         {gameState === "tournament-complete" && (
           <TournamentComplete
-            playerScores={Object.values(playerScores)}
+            playerScores={Object.values(playerScores).map(score => ({
+              player: { id: score.playerId, name: score.playerName },
+              totalPoints: score.totalPoints,
+              roundResults: []
+            }))}
             onNewTournament={handleNewTournament}
-            onShowStatistics={handleShowStatistics}
           />
         )}
 
@@ -628,7 +638,6 @@ const Index = () => {
           <ExcelImport
             onBack={() => setGameState("player-selection")}
             onImportComplete={handleImportComplete}
-            onStartImport={handleStartExcelImport}
           />
         )}
 

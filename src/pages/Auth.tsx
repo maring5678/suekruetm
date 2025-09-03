@@ -22,10 +22,10 @@ const Auth = () => {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
+    const username = formData.get('username') as string;
     const password = formData.get('password') as string;
 
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(username, password);
 
     if (error) {
       setError(error.message);
@@ -43,11 +43,11 @@ const Auth = () => {
     setSuccess(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
+    const username = formData.get('username') as string;
     const password = formData.get('password') as string;
     const displayName = formData.get('displayName') as string;
 
-    const { error } = await signUp(email, password, displayName);
+    const { error } = await signUp(username, password, displayName);
 
     if (error) {
       setError(error.message);
@@ -89,12 +89,12 @@ const Auth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">E-Mail</Label>
+                  <Label htmlFor="signin-username">Benutzername</Label>
                   <Input
-                    id="signin-email"
-                    name="email"
-                    type="email"
-                    placeholder="ihre.email@beispiel.de"
+                    id="signin-username"
+                    name="username"
+                    type="text"
+                    placeholder="Ihr Benutzername"
                     required
                   />
                 </div>
@@ -127,12 +127,12 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">E-Mail</Label>
+                  <Label htmlFor="signup-username">Benutzername</Label>
                   <Input
-                    id="signup-email"
-                    name="email"
-                    type="email"
-                    placeholder="ihre.email@beispiel.de"
+                    id="signup-username"
+                    name="username"
+                    type="text"
+                    placeholder="Ihr Benutzername"
                     required
                   />
                 </div>

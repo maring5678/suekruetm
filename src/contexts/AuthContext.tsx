@@ -16,8 +16,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (username: string, password: string, displayName: string) => Promise<{ error: any }>;
+  signIn: (username: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
 }
@@ -98,7 +98,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (username: string, password: string, displayName: string) => {
+    // Erstelle eine temporäre Email aus dem Benutzernamen
+    const email = `${username}@tournament.local`;
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -107,7 +109,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       options: {
         emailRedirectTo: redirectUrl,
         data: {
-          display_name: displayName
+          display_name: displayName,
+          username: username
         }
       }
     });
@@ -115,7 +118,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return { error };
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (username: string, password: string) => {
+    // Erstelle die Email aus dem Benutzernamen
+    const email = `${username}@tournament.local`;
+    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
