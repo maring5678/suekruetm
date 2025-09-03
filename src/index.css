@@ -148,9 +148,6 @@ All colors MUST be HSL.
     color: hsl(var(--foreground));
   }
 
-  html {
-    @apply dark;
-  }
 
   /* Ensure completely dark background */
   html, body, #root {

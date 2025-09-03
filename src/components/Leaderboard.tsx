@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, Award, Plus, User, ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Trophy, Medal, Award, Plus, User, ArrowLeft, BarChart3 } from "lucide-react";
+import { TournamentAnalytics } from "@/components/charts/TournamentAnalytics";
 
 interface Player {
   id: string;
@@ -122,39 +124,55 @@ export const Leaderboard = ({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Rundendetails</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.from(new Set(playerScores.flatMap(p => p.roundResults.map(r => r.round)))).map(roundNum => {
-                const roundData = playerScores[0]?.roundResults.find(r => r.round === roundNum);
-                return (
-                  <div key={roundNum} className="border rounded-lg p-3">
-                    <h4 className="font-medium">Runde {roundNum}: {roundData?.track}</h4>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
-                      {[1, 2, 3].map(position => {
-                        const playerResult = playerScores.find(p => 
-                          p.roundResults.some(r => r.round === roundNum && r.position === position)
-                        );
-                        if (!playerResult) return null;
-                        
-                        return (
-                          <div key={position} className="text-sm">
-                            <Badge variant={position === 1 ? "default" : position === 2 ? "secondary" : "outline"}>
-                              {position}. {playerResult.player.name}
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Rundendetails</TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Rundendetails</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from(new Set(playerScores.flatMap(p => p.roundResults.map(r => r.round)))).map(roundNum => {
+                    const roundData = playerScores[0]?.roundResults.find(r => r.round === roundNum);
+                    return (
+                      <div key={roundNum} className="border rounded-lg p-3">
+                        <h4 className="font-medium">Runde {roundNum}: {roundData?.track}</h4>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {[1, 2, 3].map(position => {
+                            const playerResult = playerScores.find(p => 
+                              p.roundResults.some(r => r.round === roundNum && r.position === position)
+                            );
+                            if (!playerResult) return null;
+                            
+                            return (
+                              <div key={position} className="text-sm">
+                                <Badge variant={position === 1 ? "default" : position === 2 ? "secondary" : "outline"}>
+                                  {position}. {playerResult.player.name}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <TournamentAnalytics playerScores={playerScores} currentRound={currentRound} />
+          </TabsContent>
+        </Tabs>
 
         <div className="flex justify-center gap-4">
           <Button onClick={onNextRound} size="lg" className="px-8">

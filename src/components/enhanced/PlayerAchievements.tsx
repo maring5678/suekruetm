@@ -247,7 +247,7 @@ export const PlayerAchievements = ({ rounds, playerName, totalStats }: PlayerAch
                   <div className="flex-grow">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold">{achievement.title}</h4>
-                      <Badge size="sm" className={getRarityColor(achievement.rarity)}>
+                      <Badge className={getRarityColor(achievement.rarity)}>
                         {getRarityName(achievement.rarity)}
                       </Badge>
                     </div>
@@ -284,7 +284,7 @@ export const PlayerAchievements = ({ rounds, playerName, totalStats }: PlayerAch
                   <div className="flex-grow">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold">{achievement.title}</h4>
-                      <Badge size="sm" className={getRarityColor(achievement.rarity)}>
+                      <Badge className={getRarityColor(achievement.rarity)}>
                         {getRarityName(achievement.rarity)}
                       </Badge>
                     </div>

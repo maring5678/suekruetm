@@ -9,6 +9,8 @@ import { ExcelImport } from "@/components/ExcelImport";
 import { PlayerDetail } from "@/components/PlayerDetail";
 import { TournamentOverview } from "@/components/TournamentOverview";
 import { LiveRanking } from "@/components/LiveRanking";
+import { LiveChat } from "@/components/chat/LiveChat";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,6 +48,8 @@ const Index = () => {
   const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
+  const [chatMinimized, setChatMinimized] = useState(true);
+  const [userName] = useState(`Spieler${Math.floor(Math.random() * 1000)}`);
   const { toast } = useToast();
 
   const handleStartTournament = async (players: Player[]) => {
@@ -455,9 +459,31 @@ const Index = () => {
     }))
   }));
 
+  // Rendere Theme Toggle und Live Chat für alle Zustände
+  const renderWithGlobalFeatures = (content: React.ReactNode) => (
+    <>
+      {content}
+      
+      {/* Theme Toggle - immer sichtbar */}
+      <div className="fixed top-4 right-4 z-40">
+        <ThemeToggle />
+      </div>
+      
+      {/* Live Chat - nur wenn Turnier aktiv oder in bestimmten Zuständen */}
+      {(currentTournamentId || ['leaderboard', 'round-input', 'tournament-complete'].includes(gameState)) && (
+        <LiveChat 
+          roomId={currentTournamentId || "main-lobby"}
+          userName={userName}
+          isMinimized={chatMinimized}
+          onToggleMinimize={() => setChatMinimized(!chatMinimized)}
+        />
+      )}
+    </>
+  );
+
   switch (gameState) {
     case "player-selection":
-      return (
+      return renderWithGlobalFeatures(
         <PlayerSelection 
           onPlayersSelected={handleStartTournament}
           onShowStatistics={handleShowStatistics}
@@ -471,7 +497,7 @@ const Index = () => {
       );
     
     case "live-ranking":
-      return (
+      return renderWithGlobalFeatures(
         <LiveRanking 
           onBack={handleBackFromLiveRanking}
           currentTournamentId={currentTournamentId}
@@ -479,7 +505,7 @@ const Index = () => {
       );
     
     case "player-edit":
-      return (
+      return renderWithGlobalFeatures(
         <PlayerEdit
           currentRound={currentRound}
           selectedPlayers={selectedPlayers}
@@ -488,7 +514,7 @@ const Index = () => {
       );
     
     case "round-input":
-      return (
+      return renderWithGlobalFeatures(
         <RoundInput
           roundNumber={currentRound}
           players={selectedPlayers}
@@ -499,7 +525,7 @@ const Index = () => {
       );
     
     case "leaderboard":
-      return (
+      return renderWithGlobalFeatures(
         <Leaderboard
           playerScores={playerScoresArray}
           currentRound={currentRound}
@@ -511,7 +537,7 @@ const Index = () => {
       );
     
     case "tournament-complete":
-      return (
+      return renderWithGlobalFeatures(
         <TournamentComplete
           playerScores={playerScoresArray}
           onNewTournament={handleNewTournament}
@@ -521,10 +547,12 @@ const Index = () => {
       );
     
     case "statistics":
-      return <Statistics onBack={handleBackFromStatistics} onPlayerClick={handlePlayerClick} />;
+      return renderWithGlobalFeatures(
+        <Statistics onBack={handleBackFromStatistics} onPlayerClick={handlePlayerClick} />
+      );
 
     case "excel-import":
-      return (
+      return renderWithGlobalFeatures(
         <ExcelImport
           onImportComplete={handleImportComplete}
           onBack={handleBackFromStatistics}
@@ -532,7 +560,7 @@ const Index = () => {
       );
 
     case "player-detail":
-      return selectedPlayerId && selectedPlayerName ? (
+      return selectedPlayerId && selectedPlayerName ? renderWithGlobalFeatures(
         <PlayerDetail
           playerId={selectedPlayerId}
           playerName={selectedPlayerName}
@@ -541,7 +569,7 @@ const Index = () => {
       ) : null;
 
     case "tournament-overview":
-      return (
+      return renderWithGlobalFeatures(
         <TournamentOverview 
           onBack={() => setGameState('player-selection')}
           currentTournamentId={currentTournamentId}
@@ -555,7 +583,11 @@ const Index = () => {
       );
     
     default:
-      return null;
+      return renderWithGlobalFeatures(
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <p className="text-muted-foreground">Unbekannter Zustand</p>
+        </div>
+      );
   }
 };
 

@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trophy, TrendingUp, Calendar, Target } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Trophy, TrendingUp, Calendar, Target, BarChart3, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PlayerPerformanceChart } from "@/components/charts/PlayerPerformanceChart";
+import { PlayerAchievements } from "@/components/enhanced/PlayerAchievements";
 
 interface PlayerDetailProps {
   playerId: string;
@@ -507,54 +510,140 @@ export const PlayerDetail = ({ playerId, playerName, onBack }: PlayerDetailProps
           </CardContent>
         </Card>
 
-        {/* Rundenverlauf */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Rundenverlauf ({rounds.length} Runden)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {rounds.length === 0 ? (
-              <div className="text-center py-8">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Noch keine Runden gespielt</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {rounds.map((round, index) => (
-                  <div key={index} className="flex items-center justify-between border rounded-lg p-3 hover:bg-accent/5 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className={`
-                        w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                        ${round.position === 1 ? 'bg-tournament-gold text-black' :
-                          round.position === 2 ? 'bg-tournament-silver text-black' :
-                          round.position === 3 ? 'bg-tournament-bronze text-white' :
-                          'bg-muted text-muted-foreground'
-                        }
-                      `}>
-                        {round.position}
-                      </div>
-                      <div>
-                        <h4 className="font-medium">{round.trackName}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {round.tournamentName} - Runde {round.roundNumber}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">{round.points}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(round.date).toLocaleDateString()}
-                      </div>
-                    </div>
+        {/* Erweiterte Analyse mit Tabs */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Trophy className="h-4 w-4" />
+              Übersicht
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Charts
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="flex items-center gap-2">
+              <Award className="h-4 w-4" />
+              Achievements
+            </TabsTrigger>
+            <TabsTrigger value="rounds" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Runden
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            {/* Turniere Übersicht */}
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  Turniere ({tournaments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {tournaments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Noch keine Turniere gespielt</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {tournaments.map((tournament) => (
+                      <div 
+                        key={tournament.id} 
+                        className="border rounded-lg p-4 hover:bg-accent/5 transition-colors cursor-pointer"
+                        onClick={() => handleTournamentClick(tournament)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold text-lg hover:text-primary transition-colors">{tournament.name}</h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {new Date(tournament.createdAt).toLocaleDateString()}
+                              </span>
+                              <span>{tournament.roundsPlayed} Runden</span>
+                              <Badge variant={tournament.completedAt ? "default" : "outline"}>
+                                {tournament.completedAt ? "Abgeschlossen" : "Laufend"}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-primary">{tournament.totalPoints}</div>
+                            <div className="text-sm text-muted-foreground">
+                              ⌀ {tournament.averagePoints.toFixed(1)} Punkte/Runde
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Beste: {tournament.bestPosition}. | Schlechteste: {tournament.worstPosition}.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="charts">
+            <PlayerPerformanceChart rounds={rounds} playerName={playerName} />
+          </TabsContent>
+
+          <TabsContent value="achievements">
+            <PlayerAchievements rounds={rounds} playerName={playerName} totalStats={totalStats} />
+          </TabsContent>
+
+          <TabsContent value="rounds">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Rundenverlauf ({rounds.length} Runden)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {rounds.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Noch keine Runden gespielt</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {rounds.map((round, index) => (
+                      <div key={index} className="flex items-center justify-between border rounded-lg p-3 hover:bg-accent/5 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`
+                            w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+                            ${round.position === 1 ? 'bg-tournament-gold text-black' :
+                              round.position === 2 ? 'bg-tournament-silver text-black' :
+                              round.position === 3 ? 'bg-tournament-bronze text-white' :
+                              'bg-muted text-muted-foreground'
+                            }
+                          `}>
+                            {round.position}
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{round.trackName}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {round.tournamentName} - Runde {round.roundNumber}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-primary">{round.points}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(round.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

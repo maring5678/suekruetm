@@ -58,7 +58,8 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
 
   const loadMessages = async () => {
     try {
-      const { data, error } = await supabase
+      // Verwende generisches any für chat_messages bis Types aktualisiert werden
+      const { data, error } = await (supabase as any)
         .from('chat_messages')
         .select('*')
         .eq('room_id', roomId)
@@ -66,7 +67,7 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
         .limit(50);
 
       if (error) throw error;
-      setMessages(data || []);
+      setMessages((data as ChatMessage[]) || []);
     } catch (error) {
       console.error('Fehler beim Laden der Nachrichten:', error);
     }
@@ -142,7 +143,8 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // Verwende generisches any für chat_messages bis Types aktualisiert werden
+      const { error } = await (supabase as any)
         .from('chat_messages')
         .insert({
           room_id: roomId,
