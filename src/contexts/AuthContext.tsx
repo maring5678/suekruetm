@@ -99,8 +99,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signUp = async (username: string, password: string, displayName: string) => {
-    // Erstelle eine temporäre Email aus dem Benutzernamen
-    const email = `${username}@tournament.local`;
+    // Erstelle eine gültige Email aus dem Benutzernamen
+    const email = `${username}@tournament-app.com`;
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -119,8 +119,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signIn = async (username: string, password: string) => {
-    // Erstelle die Email aus dem Benutzernamen
-    const email = `${username}@tournament.local`;
+    // Erstelle die gültige Email aus dem Benutzernamen
+    const email = `${username}@tournament-app.com`;
     
     const { error } = await supabase.auth.signInWithPassword({
       email,
