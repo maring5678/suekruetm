@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { PlayerSelection } from "@/components/PlayerSelection";
 import { PlayerEdit } from "@/components/PlayerEdit";
 import { RoundInput } from "@/components/RoundInput";
@@ -13,7 +14,6 @@ import { LiveChat } from "@/components/chat/LiveChat";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useGameState } from "@/hooks/useGameState";
 
 interface Player {
   id: string;
@@ -38,18 +38,87 @@ interface PlayerScoreOld {
   }[];
 }
 
+type GameState = "player-selection" | "player-edit" | "round-input" | "leaderboard" | "tournament-complete" | "statistics" | "excel-import" | "player-detail" | "tournament-overview" | "live-ranking";
+
 const Index = () => {
-  const { gameState, setGameState, previousState } = useGameState("player-selection");
+  const navigate = useNavigate();
+  const params = useParams();
+  const location = useLocation();
+  
+  // Bestimme gameState basierend auf der URL
+  const getGameStateFromUrl = (): GameState => {
+    const path = location.pathname;
+    if (path === '/statistics') return 'statistics';
+    if (path === '/tournaments') return 'tournament-overview';
+    if (path === '/live-ranking') return 'live-ranking';
+    if (path === '/excel-import') return 'excel-import';
+    if (path.startsWith('/player/')) return 'player-detail';
+    if (path.startsWith('/tournament/')) {
+      // Prüfe ob es ein aktives Turnier ist
+      return 'leaderboard'; // Default für Turnier-URLs
+    }
+    return 'player-selection';
+  };
+
+  const [gameState, setGameStateInternal] = useState<GameState>(getGameStateFromUrl());
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [playerScores, setPlayerScores] = useState<{ [key: string]: PlayerScore }>({});
   const [previousCreators, setPreviousCreators] = useState<string[]>([]); // Wird nicht mehr verwendet
-  const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [currentTournamentId, setCurrentTournamentId] = useState<string | null>(params.tournamentId || null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(params.playerId || null);
   const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
   const [chatMinimized, setChatMinimized] = useState(true);
   const [userName] = useState(`Spieler${Math.floor(Math.random() * 1000)}`);
   const { toast } = useToast();
+
+  // Navigation mit URL-Update
+  const setGameState = (newState: GameState, params?: { tournamentId?: string; playerId?: string }) => {
+    setGameStateInternal(newState);
+    
+    switch (newState) {
+      case 'statistics':
+        navigate('/statistics');
+        break;
+      case 'tournament-overview':
+        navigate('/tournaments');
+        break;
+      case 'live-ranking':
+        navigate('/live-ranking');
+        break;
+      case 'excel-import':
+        navigate('/excel-import');
+        break;
+      case 'player-detail':
+        if (params?.playerId) {
+          navigate(`/player/${params.playerId}`);
+        }
+        break;
+      case 'leaderboard':
+      case 'round-input':
+      case 'tournament-complete':
+        if (params?.tournamentId || currentTournamentId) {
+          navigate(`/tournament/${params?.tournamentId || currentTournamentId}`);
+        }
+        break;
+      default:
+        navigate('/');
+        break;
+    }
+  };
+
+  // Synchronisiere URL-Parameter mit Zustand
+  useEffect(() => {
+    if (params.tournamentId && params.tournamentId !== currentTournamentId) {
+      setCurrentTournamentId(params.tournamentId);
+      // Lade Turnier-Daten wenn tournamentId in URL
+      handleContinueTournament(params.tournamentId);
+    }
+    if (params.playerId && params.playerId !== selectedPlayerId) {
+      setSelectedPlayerId(params.playerId);
+      // Lade Player-Details
+    }
+  }, [params.tournamentId, params.playerId]);
 
   const handleStartTournament = async (players: Player[]) => {
     try {
@@ -100,7 +169,7 @@ const Index = () => {
         };
       });
       setPlayerScores(initialScores);
-      setGameState("round-input");
+      setGameState("round-input", { tournamentId: tournament.id });
       
       toast({
         title: "Turnier gestartet",
@@ -200,7 +269,7 @@ const Index = () => {
       });
       
       setCurrentRound(prev => prev + 1);
-      setGameState("leaderboard");
+      setGameState("leaderboard", { tournamentId: currentTournamentId });
       
       toast({
         title: "Runde gespeichert",
@@ -432,16 +501,14 @@ const Index = () => {
   const handlePlayerClick = (playerId: string, playerName: string) => {
     setSelectedPlayerId(playerId);
     setSelectedPlayerName(playerName);
-    setGameState("player-detail");
+    setGameState("player-detail", { playerId });
   };
 
   const handleBackFromPlayerDetail = () => {
     setSelectedPlayerId(null);
     setSelectedPlayerName(null);
-    // Intelligenter Rücksprung basierend auf vorherigem Zustand
-    if (previousState && ['leaderboard', 'statistics', 'tournament-overview'].includes(previousState)) {
-      setGameState(previousState);
-    } else if (currentTournamentId) {
+    // Intelligenter Rücksprung - zurück zu Hauptmenü
+    if (currentTournamentId) {
       setGameState("leaderboard");
     } else {
       setGameState("statistics");

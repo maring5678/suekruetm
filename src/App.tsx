@@ -19,6 +19,12 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/tournament/:tournamentId" element={<Index />} />
+            <Route path="/statistics" element={<Index />} />
+            <Route path="/player/:playerId" element={<Index />} />
+            <Route path="/tournaments" element={<Index />} />
+            <Route path="/live-ranking" element={<Index />} />
+            <Route path="/excel-import" element={<Index />} />
             <Route path="/demo" element={<Demo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
