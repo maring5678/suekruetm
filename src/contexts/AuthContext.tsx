@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const email = `${username}@tournament-app.com`;
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -114,6 +114,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
     });
+
+    // Automatisch den Benutzer bestätigen wenn erfolgreich erstellt
+    if (!error && data.user) {
+      try {
+        await supabase.functions.invoke('auto-confirm-user', {
+          body: { userId: data.user.id }
+        });
+      } catch (confirmError) {
+        console.warn('Auto-confirm failed:', confirmError);
+        // Trotzdem fortfahren, da der Benutzer erstellt wurde
+      }
+    }
     
     return { error };
   };
