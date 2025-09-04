@@ -162,61 +162,62 @@ export const PlayerSelection = ({
           currentTournamentId={currentTournamentId}
         />
 
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="absolute top-6 left-6">
+        {/* Mobile-optimized Header */}
+        <div className="text-center mb-8 sm:mb-12 relative pt-12 sm:pt-0">
+          <div className="absolute top-0 left-0 sm:top-6 sm:left-6">
             {onBack && (
               <Button 
                 onClick={onBack} 
                 variant="outline" 
                 size="sm"
-                className="backdrop-blur-sm bg-card/50 hover:bg-card/80 transition-all duration-300"
+                className="backdrop-blur-sm bg-card/50 hover:bg-card/80 transition-all duration-300 text-xs sm:text-sm touch-target"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Zurück
+                <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden xs:inline">Zurück</span>
               </Button>
             )}
           </div>
           
-          <div className="absolute top-6 right-6">
+          <div className="absolute top-0 right-0 sm:top-6 sm:right-6">
             <Button 
               onClick={() => setShowManagement(true)} 
               variant="outline" 
               size="sm"
-              className="backdrop-blur-sm bg-card/50 hover:bg-card/80 transition-all duration-300"
+              className="backdrop-blur-sm bg-card/50 hover:bg-card/80 transition-all duration-300 text-xs sm:text-sm touch-target"
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Spieler verwalten
+              <Settings className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Spieler verwalten</span>
+              <span className="xs:hidden">Verwalten</span>
             </Button>
           </div>
           
-          <div className="inline-flex items-center gap-3 p-4 rounded-full bg-primary/10 mb-6">
-            <Users className="h-8 w-8 text-primary" />
+          <div className="inline-flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-full bg-primary/10 mb-4 sm:mb-6">
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
           </div>
           
-          <h1 className="text-5xl font-bold mb-4 gradient-text">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 gradient-text mobile-safe">
             Tournament Manager
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4 sm:px-0">
             Wählen Sie die Spieler aus, die am heutigen Turnier teilnehmen werden
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="space-y-8">
+        {/* Mobile-optimized Main Content */}
+        <div className="space-y-6 sm:space-y-8">
           {availablePlayers.length === 0 ? (
             <Card className="card-elevated max-w-md mx-auto text-center">
-              <CardContent className="p-12">
-                <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Users className="h-8 w-8 text-muted-foreground" />
+              <CardContent className="p-8 sm:p-12">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <Users className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-4">Noch keine Spieler vorhanden</h3>
-                <p className="text-muted-foreground mb-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Noch keine Spieler vorhanden</h3>
+                <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
                   Fügen Sie Ihre ersten Spieler hinzu, um zu beginnen
                 </p>
                 <Button 
                   onClick={() => setShowManagement(true)} 
-                  className="button-glow"
+                  className="button-glow touch-target"
                   size="lg"
                 >
                   <Settings className="h-5 w-5 mr-2" />
@@ -298,21 +299,21 @@ export const PlayerSelection = ({
               {/* Selected Players */}
               {selectedPlayers.length > 0 && (
                 <Card className="card-elevated">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" />
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       Ausgewählte Spieler ({selectedPlayers.length})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-3">
+                  <CardContent className="pt-0">
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       {selectedPlayers.map((player) => (
                         <Badge 
                           key={player.id} 
                           variant="secondary" 
-                          className="text-base px-4 py-2 bg-primary/10 text-primary border border-primary/20"
+                          className="text-sm sm:text-base px-3 sm:px-4 py-1.5 sm:py-2 bg-primary/10 text-primary border border-primary/20 mobile-safe"
                         >
-                          {player.name}
+                          <span className="truncate max-w-[120px] sm:max-w-none">{player.name}</span>
                         </Badge>
                       ))}
                     </div>

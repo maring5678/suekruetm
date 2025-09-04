@@ -188,13 +188,13 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
 
   if (!showRanking) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-background p-2 sm:p-4 lg:p-6 mobile-safe">
         <div className="max-w-2xl mx-auto">
           {onBack && (
-            <div className="mb-6">
-              <Button onClick={onBack} variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Zurück
+            <div className="mb-4 sm:mb-6">
+              <Button onClick={onBack} variant="outline" size="sm" className="touch-target text-xs sm:text-sm">
+                <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden xs:inline">Zurück</span>
               </Button>
             </div>
           )}
@@ -379,20 +379,20 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-2 sm:p-4 lg:p-6 mobile-safe">
       <div className="max-w-4xl mx-auto">
         <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
-              <Trophy className="h-6 w-6 text-primary" />
-              Runde {roundNumber} - {(isCustomCreator ? customCreator : creator)} #{trackNumber}
+          <CardHeader className="text-center pb-4 sm:pb-6">
+            <CardTitle className="text-lg sm:text-xl lg:text-2xl font-bold flex flex-col sm:flex-row items-center justify-center gap-2">
+              <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              <span className="text-center">Runde {roundNumber} - {(isCustomCreator ? customCreator : creator)} #{trackNumber}</span>
             </CardTitle>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               Beginnen Sie mit dem letzten Platz und arbeiten sich nach oben
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {(() => {
                 // Zeige alle Positionen von letztem bis ersten Platz
                 const positions: number[] = [];
@@ -429,17 +429,18 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
               ))}
             </div>
 
-            <div className="flex justify-between items-center pt-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
               <Button
                 onClick={() => setShowRanking(false)}
                 variant="outline"
                 size="lg"
+                className="touch-target w-full sm:w-auto order-2 sm:order-1"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Zurück
               </Button>
               
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
                 <Button
                   onClick={async () => {
                     try {
@@ -488,7 +489,7 @@ export const RoundInput = ({ roundNumber, players, onRoundComplete, onPlayersCha
                   onClick={handleRoundComplete}
                   disabled={selectedRankings.filter(p => p).length !== players.length}
                   size="lg"
-                  className="px-8"
+                  className="px-6 sm:px-8 touch-target w-full sm:w-auto"
                 >
                   Runde abschließen
                 </Button>

@@ -59,19 +59,19 @@ export const Leaderboard = ({
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-2 sm:p-4 lg:p-6 mobile-safe">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         {onBack && (
-          <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Zurück
+          <Button onClick={onBack} variant="outline" size="sm" className="shadow-sm touch-target text-xs sm:text-sm">
+            <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Zurück</span>
           </Button>
         )}
         <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
-              <Trophy className="h-8 w-8 text-primary" />
-              Zwischenstand nach Runde {currentRound - 1}
+          <CardHeader className="text-center pb-4 sm:pb-6">
+            <CardTitle className="text-xl sm:text-2xl lg:text-3xl font-bold flex flex-col sm:flex-row items-center justify-center gap-2">
+              <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <span className="text-center">Zwischenstand nach Runde {currentRound - 1}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -89,25 +89,25 @@ export const Leaderboard = ({
                   `}
                   onClick={() => onPlayerClick?.(score.player.id, score.player.name)}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {getRankIcon(index + 1)}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{score.player.name}</h3>
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="flex-shrink-0">{getRankIcon(index + 1)}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-base sm:text-lg truncate">{score.player.name}</h3>
                             {onPlayerClick && (
-                              <User className="h-4 w-4 text-muted-foreground" />
+                              <User className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                             )}
                           </div>
-                          <Badge variant={getRankBadgeVariant(index + 1)}>
+                          <Badge variant={getRankBadgeVariant(index + 1)} className="text-xs sm:text-sm">
                             {score.totalPoints} Punkte
                           </Badge>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Rundenergebnisse:</p>
-                        <div className="flex gap-1 flex-wrap justify-end">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-1">Rundenergebnisse:</p>
+                        <div className="flex gap-1 flex-wrap justify-start sm:justify-end">
                           {score.roundResults.map((result) => (
                             <Badge key={result.round} variant="outline" className="text-xs">
                               R{result.round}: {result.points}P
@@ -174,12 +174,12 @@ export const Leaderboard = ({
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-center gap-4">
-          <Button onClick={onNextRound} size="lg" className="px-8">
-            <Plus className="h-5 w-5 mr-2" />
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4 sm:px-0">
+          <Button onClick={onNextRound} size="lg" className="px-6 sm:px-8 touch-target w-full sm:w-auto">
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             Nächste Runde
           </Button>
-          <Button onClick={onEndTournament} variant="outline" size="lg">
+          <Button onClick={onEndTournament} variant="outline" size="lg" className="touch-target w-full sm:w-auto">
             Turnier beenden
           </Button>
         </div>

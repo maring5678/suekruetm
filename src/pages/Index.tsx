@@ -545,22 +545,25 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg p-2 border">
-          <Avatar className="h-8 w-8">
+      {/* Mobile-optimized header */}
+      <div className="fixed top-2 right-2 z-50 flex items-center gap-1 sm:gap-2 sm:top-4 sm:right-4">
+        <div className="flex items-center gap-1 sm:gap-2 bg-background/90 backdrop-blur-sm rounded-lg p-1.5 sm:p-2 border shadow-lg">
+          <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
             <AvatarImage src={profile?.avatar_url} />
-            <AvatarFallback>
+            <AvatarFallback className="text-xs sm:text-sm">
               {profile?.display_name?.charAt(0)?.toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm font-medium">{profile?.display_name}</span>
+          <span className="text-xs sm:text-sm font-medium hidden xs:inline max-w-[80px] sm:max-w-none truncate">
+            {profile?.display_name}
+          </span>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
-            className="h-8 w-8 p-0"
+            className="h-6 w-6 sm:h-8 sm:w-8 p-0"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
           </Button>
         </div>
         <ThemeToggle />
@@ -572,7 +575,8 @@ const Index = () => {
         />
       </div>
 
-      <div className="container mx-auto p-4">
+      {/* Mobile-safe container with proper padding */}
+      <div className="container mx-auto px-2 py-4 pb-20 sm:px-4 max-w-full overflow-x-hidden">
         {gameState === "player-selection" && (
           <PlayerSelection
             onPlayersSelected={handleStartTournament}
