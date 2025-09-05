@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Send, Users, Eye, EyeOff } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { MessageCircle, Send, Users, Eye, EyeOff, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -182,6 +183,9 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
     if (!newMessage.trim() || isLoading || !profile?.display_name) return;
 
     setIsLoading(true);
+    const messageText = newMessage.trim();
+    setNewMessage(""); // Clear input immediately
+    
     try {
       // Verwende generisches any für chat_messages bis Types aktualisiert werden
       const { error } = await (supabase as any)
@@ -189,13 +193,13 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
         .insert({
           room_id: roomId,
           user_name: profile.display_name,
-          message: newMessage.trim()
+          message: messageText
         });
 
       if (error) throw error;
-      setNewMessage("");
     } catch (error) {
       console.error('Fehler beim Senden der Nachricht:', error);
+      setNewMessage(messageText); // Restore message on error
       toast({
         title: "Fehler",
         description: "Nachricht konnte nicht gesendet werden",
@@ -241,12 +245,12 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-80 h-96 z-50">
-      <Card className="h-full flex flex-col shadow-lg">
-        <CardHeader className="pb-3 flex-shrink-0">
+    <div className="fixed bottom-4 right-4 w-80 h-[500px] max-h-[80vh] z-50">
+      <Card className="h-full flex flex-col shadow-lg border">
+        <CardHeader className="pb-2 px-4 py-3 flex-shrink-0 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-primary" />
               Live Chat
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -258,17 +262,16 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
                 onClick={onToggleMinimize}
                 variant="ghost"
                 size="sm"
+                className="h-6 w-6 p-0"
               >
-                {isMinimized ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                <X className="h-3 w-3" />
               </Button>
             </div>
           </div>
-        </CardHeader>
-        
-        <CardContent className="flex-1 flex flex-col p-3 gap-3">
+          
           {/* Online Benutzer */}
           {onlineUsers.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1 flex-wrap mt-2">
               {onlineUsers.map(user => (
                 <Badge 
                   key={user.user_name}
@@ -281,76 +284,64 @@ export const LiveChat = ({ roomId, userName, isMinimized = false, onToggleMinimi
               ))}
             </div>
           )}
-
-          {/* Nachrichten */}
-          <div 
-            ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto space-y-2 min-h-0 max-h-[280px] scroll-smooth"
-            onScroll={handleScroll}
-            style={{ scrollBehavior: 'smooth' }}
-          >
-            {messages.length === 0 ? (
-              <div className="text-center text-muted-foreground text-sm py-4">
-                Noch keine Nachrichten. Starte die Unterhaltung!
-              </div>
-            ) : (
-              <>
-                {messages.map(message => (
-                  <div
-                    key={message.id}
-                    className={`
-                      p-2 rounded-lg text-sm break-words
-                      ${message.user_name === profile?.display_name
-                        ? 'bg-primary text-primary-foreground ml-4' 
-                        : 'bg-muted mr-4'
-                      }
-                    `}
-                  >
-                    <div className="font-medium text-xs opacity-75">
-                      {message.user_name} • {formatTime(message.created_at)}
-                    </div>
-                    <div className="mt-1 whitespace-pre-wrap">{message.message}</div>
+        </CardHeader>
+        
+        <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+          {/* Nachrichten mit ScrollArea */}
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full">
+              <div className="p-3 space-y-2">
+                {messages.length === 0 ? (
+                  <div className="text-center text-muted-foreground text-sm py-8">
+                    Noch keine Nachrichten. Starte die Unterhaltung!
                   </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-            
-            {/* Scroll to bottom Button */}
-            {!autoScroll && (
-              <div className="sticky bottom-2 right-2 flex justify-end">
-                <Button
-                  onClick={() => {
-                    setAutoScroll(true);
-                    scrollToBottom();
-                  }}
-                  size="sm"
-                  variant="secondary"
-                  className="opacity-80 hover:opacity-100"
-                >
-                  ↓ Neue Nachrichten
-                </Button>
+                ) : (
+                  <>
+                    {messages.map(message => (
+                      <div
+                        key={message.id}
+                        className={`
+                          p-2 rounded-lg text-sm break-words max-w-[85%]
+                          ${message.user_name === profile?.display_name
+                            ? 'bg-primary text-primary-foreground ml-auto' 
+                            : 'bg-muted mr-auto'
+                          }
+                        `}
+                      >
+                        <div className="font-medium text-xs opacity-75 mb-1">
+                          {message.user_name} • {formatTime(message.created_at)}
+                        </div>
+                        <div className="whitespace-pre-wrap leading-relaxed">{message.message}</div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
               </div>
-            )}
+            </ScrollArea>
           </div>
 
           {/* Eingabefeld */}
-          <div className="flex gap-2 flex-shrink-0">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Nachricht eingeben..."
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button 
-              onClick={sendMessage}
-              disabled={!newMessage.trim() || isLoading}
-              size="sm"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="flex-shrink-0 p-3 border-t">
+            <div className="flex gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Nachricht eingeben..."
+                disabled={isLoading}
+                className="flex-1"
+                autoFocus={false}
+              />
+              <Button 
+                onClick={sendMessage}
+                disabled={!newMessage.trim() || isLoading}
+                size="sm"
+                className="px-3"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
