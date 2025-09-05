@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!isMounted) return;
         
         console.log('Auth state change:', event, session?.user?.id);
@@ -75,13 +75,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Only fetch profile on specific events, not all
+        // Only fetch profile on specific events, not all - but defer with setTimeout
         if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          try {
-            await fetchProfile(session.user.id);
-          } catch (error) {
-            console.error('Profile fetch error:', error);
-          }
+          setTimeout(() => {
+            if (isMounted) {
+              fetchProfile(session.user.id);
+            }
+          }, 0);
         } else if (!session?.user) {
           setProfile(null);
         }
@@ -114,11 +114,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           // Only fetch profile if we have a session but no profile yet
           if (session?.user) {
-            try {
-              await fetchProfile(session.user.id);
-            } catch (error) {
-              console.error('Initial profile fetch error:', error);
-            }
+            setTimeout(() => {
+              if (isMounted) {
+                fetchProfile(session.user.id);
+              }
+            }, 0);
           }
           
           setLoading(false);
