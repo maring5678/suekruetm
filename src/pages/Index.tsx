@@ -581,12 +581,13 @@ const Index = () => {
           </Button>
         </div>
         <ThemeToggle />
-        <LiveChat 
+        {/* LiveChat temporär deaktiviert */}
+        {false && <LiveChat 
           roomId="general" 
           userName={profile?.display_name || 'Anonymous'}
           isMinimized={chatMinimized}
           onToggleMinimize={() => setChatMinimized(!chatMinimized)}
-        />
+        />}
       </div>
 
       {/* Mobile-safe container with proper padding */}
