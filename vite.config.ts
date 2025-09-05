@@ -8,11 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    hmr: {
-      overlay: false
-    },
+    hmr: false, // HMR komplett deaktiviert
     watch: {
-      ignored: ['**/node_modules/**', '**/dist/**']
+      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**']
     }
   },
   plugins: [
