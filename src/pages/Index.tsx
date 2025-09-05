@@ -84,20 +84,34 @@ const Index = () => {
       navigate('/auth');
       return;
     }
+  }, [user, loading, navigate]);
 
-    const path = location.pathname;
+  // URL-basierte Navigation handhaben (separater useEffect)
+  useEffect(() => {
+    if (loading || !user) return;
+
     const newGameState = getGameStateFromUrl();
     setGameStateInternal(newGameState);
+  }, [location.pathname, loading, user]);
+
+  // Turnier-Parameter handhaben (separater useEffect)
+  useEffect(() => {
+    if (loading || !user) return;
     
-    // Parameter aktualisieren
     if (params.tournamentId && params.tournamentId !== currentTournamentId) {
       setCurrentTournamentId(params.tournamentId);
       handleContinueTournament(params.tournamentId);
     }
+  }, [params.tournamentId, currentTournamentId, loading, user]);
+
+  // Spieler-Parameter handhaben (separater useEffect)
+  useEffect(() => {
+    if (loading || !user) return;
+    
     if (params.playerId && params.playerId !== selectedPlayerId) {
       setSelectedPlayerId(params.playerId);
     }
-  }, [location.pathname, params.tournamentId, params.playerId, user, loading, navigate]);
+  }, [params.playerId, selectedPlayerId, loading, user]);
 
   // Navigation mit URL-Update
   const setGameState = (newState: GameState, params?: { tournamentId?: string; playerId?: string }) => {
