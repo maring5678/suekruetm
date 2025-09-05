@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (!isMounted) return;
         
         console.log('Auth state change:', event, session?.user?.id);
@@ -75,17 +75,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user && !profile) {
-          // Only fetch profile if we don't have one yet
-          setTimeout(() => {
-            if (isMounted) {
-              fetchProfile(session.user.id);
-            }
-          }, 0);
+        // Only fetch profile on specific events, not all
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          try {
+            await fetchProfile(session.user.id);
+          } catch (error) {
+            console.error('Profile fetch error:', error);
+          }
         } else if (!session?.user) {
           setProfile(null);
         }
         
+        // Only set loading false once during initialization
         if (!isInitialized) {
           setLoading(false);
           setIsInitialized(true);
@@ -100,8 +101,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         
         if (error) {
           console.error('Session check error:', error);
-          setLoading(false);
-          setIsInitialized(true);
+          if (isMounted) {
+            setLoading(false);
+            setIsInitialized(true);
+          }
           return;
         }
 
@@ -109,17 +112,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           setSession(session);
           setUser(session?.user ?? null);
           
+          // Only fetch profile if we have a session but no profile yet
           if (session?.user) {
-            setTimeout(() => {
-              if (isMounted) {
-                fetchProfile(session.user.id);
-              }
-            }, 0);
+            try {
+              await fetchProfile(session.user.id);
+            } catch (error) {
+              console.error('Initial profile fetch error:', error);
+            }
           }
+          
+          setLoading(false);
+          setIsInitialized(true);
         }
       } catch (error) {
         console.error('Session check failed:', error);
-      } finally {
         if (isMounted) {
           setLoading(false);
           setIsInitialized(true);
@@ -133,7 +139,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Leeres Dependency-Array!
 
   const signUp = async (username: string, password: string, displayName: string) => {
     // Erstelle eine gültige Email aus dem Benutzernamen
