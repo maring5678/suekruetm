@@ -658,6 +658,10 @@ const Index = () => {
             onBack={handleBackFromTournaments}
             onContinueTournament={handleContinueTournament}
             currentTournamentId={currentTournamentId}
+            onDeleteTournament={(tournamentId) => {
+              // Tournament was deleted, refresh any local state if needed
+              console.log(`Tournament ${tournamentId} was deleted`);
+            }}
           />
         )}
 
