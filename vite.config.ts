@@ -8,6 +8,12 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    hmr: {
+      overlay: false
+    },
+    watch: {
+      ignored: ['**/node_modules/**', '**/dist/**']
+    }
   },
   plugins: [
     react(),
